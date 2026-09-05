@@ -1,6 +1,6 @@
 {
   "name": "ha-snapmaker-u1-print-status-card",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A graphical print-status + control card for the Snapmaker U1 (Paxx Extended Firmware / Moonraker) in Home Assistant",
   "main": "index.js",
   "scripts": {
@@ -8,12 +8,13 @@
     "build": "cross-env IGNORE_TS_ERRORS=true rollup -c --bundleConfigAsCjs",
     "build:strict": "cross-env IGNORE_TS_ERRORS=false rollup -c --bundleConfigAsCjs",
     "format": "prettier --write .",
-    "verify": "ts-node --transpile-only --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" scripts/verify-resolver.ts"
+    "verify": "ts-node --transpile-only --compiler-options \"{\\\"module\\\":\\\"commonjs\\\"}\" scripts/verify-resolver.ts",
+    "smoke": "node scripts/smoke-render.mjs"
   },
   "author": "Mitchell",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mitchell/ha-snapmaker-u1-print-status-card"
+    "url": "https://github.com/StealthFireMS/ha-snapmaker-u1-print-status-card"
   },
   "license": "MIT",
   "dependencies": {
@@ -29,6 +30,7 @@
     "@babel/core": "^7.26.0",
     "@babel/preset-env": "^7.26.0",
     "cross-env": "^7.0.3",
+    "jsdom": "^25.0.1",
     "prettier": "^3.3.3",
     "rollup": "^4.18.0",
     "rollup-plugin-serve": "^1.1.1",
