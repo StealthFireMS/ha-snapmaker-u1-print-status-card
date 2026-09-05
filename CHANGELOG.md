@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.2
+
+### Changed
+
+- **Default card size is now 12 columns x 5 rows** in the Home Assistant sections/grid view
+  (previously 4 columns x 8 rows) - a shorter, wider footprint in line with other graphical
+  print-status cards, added via `getGridOptions()` (the current sizing API) with `getLayoutOptions()`
+  kept alongside it for older HA cores. The card stays resizable: it can be dragged down to 6x3
+  or up to a full-width 12x10, the 12x5 default is just where it starts.
+- **The card now adapts its own layout to whatever size it's actually rendered at**, using CSS
+  container queries (`container-type: inline-size` on the card itself, not just a fixed set of
+  screen-width breakpoints, so it reacts correctly however it's embedded - sections view,
+  masonry view, a narrow sidebar, etc.):
+  - At its default width and wider, the camera sits beside the stats/controls instead of on top
+    of them, so a short-and-wide card doesn't force the media panel to eat all the vertical
+    space.
+  - Narrower than ~320px, the tool-tile grid drops to a fixed 2-column layout and button/title
+    text sizes tighten up, so nothing gets crushed if the card is dragged smaller.
+  - Wider than ~720px, the tile grid and header title get a little more breathing room.
+
 ## 0.1.1
 
 ### Fixed

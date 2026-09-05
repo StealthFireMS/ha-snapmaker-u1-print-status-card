@@ -58,12 +58,29 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     };
   }
 
+  // Current API (HA sections/grid view). 12 columns x 5 rows is the primary/default size -
+  // roughly a landscape card wide enough for the camera and stat tiles to sit side by side.
+  // Still resizable by the user within the min/max bounds below.
+  public getGridOptions() {
+    return {
+      columns: 12,
+      rows: 5,
+      min_columns: 6,
+      max_columns: 12,
+      min_rows: 3,
+      max_rows: 10,
+    };
+  }
+
+  // Older API name, kept for HA cores that predate getGridOptions(). Same values.
   public getLayoutOptions() {
     return {
-      grid_rows: 8,
-      grid_min_rows: 6,
-      grid_columns: 4,
-      grid_min_columns: 4,
+      grid_columns: 12,
+      grid_rows: 5,
+      grid_min_columns: 6,
+      grid_max_columns: 12,
+      grid_min_rows: 3,
+      grid_max_rows: 10,
     };
   }
 
@@ -174,12 +191,19 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
       `;
     }
 
+    const showMedia = this._config.show_camera !== false;
+
     return html`
       <ha-card>
         ${this._renderHeader()}
-        ${this._config.show_camera !== false ? this._renderMedia() : nothing}
-        ${this._renderMessage()} ${this._renderTiles()} ${this._renderControls()}
-        ${this._renderAdvancedToggle()} ${this._advancedExpanded ? this._renderAdvanced() : nothing}
+        <div class="body ${showMedia ? "" : "no-media"}">
+          ${showMedia ? this._renderMedia() : nothing}
+          <div class="info">
+            ${this._renderMessage()} ${this._renderTiles()} ${this._renderControls()}
+            ${this._renderAdvancedToggle()}
+            ${this._advancedExpanded ? this._renderAdvanced() : nothing}
+          </div>
+        </div>
       </ha-card>
       ${this._confirm ? this._renderConfirmDialog() : nothing}
     `;
@@ -205,10 +229,10 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
                   >
                     <ha-icon
                       icon=${
-                      helpers.getState(this._hass, light) === "on"
-                        ? "mdi:lightbulb-on"
-                        : "mdi:lightbulb-outline"
-                    }
+                        helpers.getState(this._hass, light) === "on"
+                          ? "mdi:lightbulb-on"
+                          : "mdi:lightbulb-outline"
+                      }
                     ></ha-icon>
                   </ha-icon-button>
                 `
@@ -356,8 +380,8 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
                 this._e("cavity_fan_speed")
                   ? html`<span class="tile-sub"
                       >${helpers.formatPercent(
-                      helpers.getNumericState(this._hass, this._e("cavity_fan_speed"))
-                    )}
+                        helpers.getNumericState(this._hass, this._e("cavity_fan_speed"))
+                      )}
                       fan</span
                     >`
                   : nothing
@@ -436,11 +460,11 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
                 <ha-button
                   ?disabled=${!this._isActive()}
                   @click=${() =>
-                  this._requestConfirm(
-                    "Cancel the current print? This can't be undone.",
-                    () => helpers.pressButton(this._hass, cancel),
-                    true
-                  )}
+                    this._requestConfirm(
+                      "Cancel the current print? This can't be undone.",
+                      () => helpers.pressButton(this._hass, cancel),
+                      true
+                    )}
                 >
                   <ha-icon slot="icon" icon="mdi:stop"></ha-icon>
                   Cancel
@@ -468,11 +492,11 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
                   class="icon-button stop-button"
                   title="Emergency stop"
                   @click=${() =>
-                  this._requestConfirm(
-                    "Trigger an EMERGENCY STOP? The printer will halt immediately and require a restart.",
-                    () => helpers.pressButton(this._hass, estop),
-                    true
-                  )}
+                    this._requestConfirm(
+                      "Trigger an EMERGENCY STOP? The printer will halt immediately and require a restart.",
+                      () => helpers.pressButton(this._hass, estop),
+                      true
+                    )}
                 >
                   <ha-icon icon="mdi:alert-octagon"></ha-icon>
                 </ha-icon-button>
@@ -606,26 +630,26 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
             ? html`
                 <div class="axis-buttons">
                   ${
-                  homeX
-                    ? html`<ha-button @click=${() => helpers.pressButton(this._hass, homeX)}
-                        >Home X</ha-button
-                      >`
-                    : nothing
-                }
+                    homeX
+                      ? html`<ha-button @click=${() => helpers.pressButton(this._hass, homeX)}
+                          >Home X</ha-button
+                        >`
+                      : nothing
+                  }
                   ${
-                  homeY
-                    ? html`<ha-button @click=${() => helpers.pressButton(this._hass, homeY)}
-                        >Home Y</ha-button
-                      >`
-                    : nothing
-                }
+                    homeY
+                      ? html`<ha-button @click=${() => helpers.pressButton(this._hass, homeY)}
+                          >Home Y</ha-button
+                        >`
+                      : nothing
+                  }
                   ${
-                  homeZ
-                    ? html`<ha-button @click=${() => helpers.pressButton(this._hass, homeZ)}
-                        >Home Z</ha-button
-                      >`
-                    : nothing
-                }
+                    homeZ
+                      ? html`<ha-button @click=${() => helpers.pressButton(this._hass, homeZ)}
+                          >Home Z</ha-button
+                        >`
+                      : nothing
+                  }
                 </div>
               `
             : nothing

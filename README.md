@@ -81,6 +81,14 @@ entity pickers.
 | `power_entity` | entity (switch) | *(none)* | A smart-plug switch to show/toggle in the header. |
 | `show_advanced_default` | boolean | `false` | Expand the Advanced section by default. |
 
+### Card size
+
+In the sections/grid dashboard view, the card starts at **12 columns wide x 5 rows tall** - a
+short, wide layout with the camera alongside the stats and controls. It's just the starting
+point: drag any edge in the dashboard editor to resize it down to as small as 6x3 or up to a
+full-width 12x10, and the card's own layout adapts to whatever size you leave it at (the tile
+grid and camera placement reflow rather than just clipping or leaving empty space).
+
 ## How entity auto-discovery works
 
 You only pick the **device** - the card figures out the rest by matching each of the device's

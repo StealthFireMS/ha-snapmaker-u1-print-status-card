@@ -103,6 +103,31 @@ async function main() {
   if (!shadow.innerHTML.toLowerCase().includes("tool")) {
     throw new Error("Rendered output doesn't contain the expected tool-tile content.");
   }
+  if (!shadow.querySelector(".body") || !shadow.querySelector(".info")) {
+    throw new Error("Expected .body/.info wrapper elements (responsive layout) are missing.");
+  }
+
+  const expectedGridOptions = {
+    columns: 12,
+    rows: 5,
+    min_columns: 6,
+    max_columns: 12,
+    min_rows: 3,
+    max_rows: 10,
+  };
+  if (typeof el.getGridOptions !== "function") {
+    throw new Error(
+      "getGridOptions() is missing - the card won't get its default 12x5 size in the sections view."
+    );
+  }
+  const gridOptions = el.getGridOptions();
+  for (const [key, value] of Object.entries(expectedGridOptions)) {
+    if (gridOptions[key] !== value) {
+      throw new Error(
+        `getGridOptions().${key} was ${JSON.stringify(gridOptions[key])}, expected ${JSON.stringify(value)}.`
+      );
+    }
+  }
 
   console.log(`Smoke test passed: rendered ${shadow.innerHTML.length} chars with no errors.`);
 }

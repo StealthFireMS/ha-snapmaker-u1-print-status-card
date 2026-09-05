@@ -26,3 +26,6 @@ jobs:
 
       - name: Verify entity-discovery resolver against fixture
         run: npm run verify
+
+      - name: Smoke-test the built bundle renders without throwing
+        run: npm run smoke

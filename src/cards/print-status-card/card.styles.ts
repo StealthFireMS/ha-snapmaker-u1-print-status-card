@@ -4,6 +4,12 @@ export default css`
   :host {
     --u1-accent: var(--primary-color);
     --u1-tile-bg: var(--ha-card-background, var(--card-background-color, #fff));
+    /* Lets the card react to its own rendered width (see @container rules below) instead of
+       only ever laying out for one fixed size - the same box needs to look right whether the
+       user has it at its default 12x5 grid size, dragged narrower/shorter, or wider/taller. */
+    container-type: inline-size;
+    container-name: u1-card;
+    display: block;
   }
 
   ha-card {
@@ -11,6 +17,69 @@ export default css`
     display: flex;
     flex-direction: column;
     gap: 12px;
+    height: 100%;
+    box-sizing: border-box;
+  }
+
+  .body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .info {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  /* Wide card (roomy sections-view sizing, e.g. the default 12-column width): put the camera
+     alongside the stats/controls instead of stacking everything, so a short-and-wide card
+     doesn't force the media to dominate the available height. */
+  @container u1-card (min-width: 480px) {
+    .body:not(.no-media) {
+      flex-direction: row;
+      align-items: flex-start;
+    }
+    .body:not(.no-media) .media {
+      /* flex-basis (via the flex shorthand) wins over width on the main axis here, so this
+         intentionally overrides the 100%-wide stacked-layout default above. */
+      flex: 0 0 38%;
+      width: auto;
+      max-width: 280px;
+      aspect-ratio: 1 / 1;
+    }
+    .body:not(.no-media) .info {
+      flex: 1 1 auto;
+      justify-content: center;
+    }
+  }
+
+  /* Extra-wide: give the tile grid room to breathe and bump up the title a touch. */
+  @container u1-card (min-width: 720px) {
+    .tiles {
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    }
+    .header .title {
+      font-size: 1.35rem;
+    }
+  }
+
+  /* Narrow card (dragged smaller than the default, or a small dashboard column): tighten up
+     the tile grid and controls so nothing gets too cramped to read or tap. */
+  @container u1-card (max-width: 320px) {
+    .tiles {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .controls ha-button {
+      min-width: 0;
+      font-size: 0.85rem;
+    }
+    .header .title {
+      font-size: 1.05rem;
+    }
   }
 
   .header {

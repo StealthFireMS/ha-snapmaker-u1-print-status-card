@@ -13,6 +13,7 @@ export function registerCustomCard(params: RegisterCardParams) {
   windowWithCards.customCards.push({
     ...params,
     preview: true,
-    documentationURL: "https://github.com/mitchell/ha-snapmaker-u1-print-status-card#configuration",
+    documentationURL:
+      "https://github.com/StealthFireMS/ha-snapmaker-u1-print-status-card#configuration",
   });
 }
