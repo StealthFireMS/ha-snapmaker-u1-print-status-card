@@ -1,0 +1,28 @@
+name: Frontend Build Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build_test:
+    name: Check frontend build passes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build frontend (strict)
+        run: npm run build:strict
+
+      - name: Verify entity-discovery resolver against fixture
+        run: npm run verify

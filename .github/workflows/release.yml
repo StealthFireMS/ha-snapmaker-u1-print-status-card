@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  release:
+    types:
+      - released
+
+jobs:
+  build_release:
+    name: Build and attach frontend bundle
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Update package.json version
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+          npm version "$VERSION" --no-git-tag-version
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Attach build to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.js
