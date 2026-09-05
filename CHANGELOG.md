@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.1.4
+
+### Changed
+
+Redesigned the card's layout and visual style to match a more compact, dashboard-toolbar look
+(based on reference screenshots of a similar card's design):
+
+- Dropped the title header row. The camera and stats now start right at the top of the card.
+- The camera and a compact stat sidebar now sit side by side as the card's main content, instead
+  of the camera on top with a grid of boxed tiles below. The sidebar shows bed/cavity/tool stats
+  as small two-tier cells (a tiny icon+target row over a large current-value number) separated by
+  hairline dividers, rather than individually boxed tiles.
+- The camera's view-toggle icon moved to the top-left of the image; a new expand icon in the
+  bottom-right opens the camera/thumbnail entity's more-info dialog for a bigger view.
+- The print state (e.g. "Printing", "Offline") is now a plain text line below the camera/stats
+  row instead of a colored pill in the header.
+- All actions - cavity light, power plug, pause/resume, cancel, and emergency stop - are now a
+  single row of square icon-only buttons (previously light/power were header icons and
+  pause/resume/cancel were text-labeled pill buttons). Each button has a tooltip via its title
+  attribute for accessibility.
+
+### Fixed
+
+- The icon-button toolbar had a sizing bug where, on the card's wide default size, each button
+  would stretch to divide up the full row width and then balloon into a huge square (its
+  `aspect-ratio: 1` made height follow that stretched width). Buttons are now a fixed, sane size
+  and centered as a compact group.
+- On very narrow renders (well below the card's locked size - a safety net for unusual
+  embeddings, not the normal case), the stat sidebar could demand more height than the stacked
+  layout actually had available and overflow past its own row, even though the card as a whole
+  still didn't exceed its box. Fixed by letting the sidebar shrink and scroll internally there,
+  same as elsewhere.
+- At the card's normal (default) size, the stat sidebar's 2-column grid needed 3 rows to fit
+  bed/cavity/4 tools (6 cells), and that 3-row stack could ask for more height than the sidebar
+  actually had, silently clipping the bottom row (usually E2/E3) against the sidebar's own
+  `overflow: hidden`. Switched to a 3-column grid (2 rows for 6 cells) so it comfortably fits the
+  space actually available instead of relying on there being enough room for a 3rd row.
+
 ## 0.1.3
 
 ### Fixed

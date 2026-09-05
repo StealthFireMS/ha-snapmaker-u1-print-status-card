@@ -20,157 +20,57 @@ export default css`
   }
 
   ha-card {
-    padding: 12px;
+    padding: 10px;
     display: flex;
     flex-direction: column;
     gap: 8px;
     height: 100%;
     box-sizing: border-box;
-    /* Hard stop: whatever doesn't fit in the locked box gets clipped/scrolled (see .info)
+    /* Hard stop: whatever doesn't fit in the locked box gets clipped/scrolled (see .stats-sidebar)
        rather than drawn outside the card's own border, however tall the content wants to be. */
     overflow: hidden;
   }
 
-  .header {
+  /* ---- top row: camera + compact stat sidebar side by side ------------------------------- */
+
+  .top-row {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    gap: 8px;
+  }
+  .top-row.no-media {
     flex: 0 0 auto;
   }
 
-  .body {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  .info {
-    flex: 1 1 auto;
-    min-width: 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    /* If the tiles/controls/advanced content is still taller than the space left after the
-       header and media, scroll it internally instead of pushing the card taller than 5 rows. */
-    overflow-y: auto;
-  }
-
-  /* Wide card (roomy sections-view sizing, e.g. the default 12-column width): put the camera
-     alongside the stats/controls instead of stacking everything, so a short-and-wide card
-     doesn't force the media to dominate the available height. */
-  @container u1-card (min-width: 480px) {
-    .body:not(.no-media) {
-      flex-direction: row;
-      align-items: stretch;
+  /* Very narrow rendering (a small dashboard column, or a phone-width dashboard): stack
+     instead of side-by-side so nothing gets squeezed unreadably thin. The card is locked to
+     12x5, so this is a safety net for unusual embeddings rather than the everyday case. */
+  @container u1-card (max-width: 360px) {
+    .top-row:not(.no-media) {
+      flex-direction: column;
     }
-    .body:not(.no-media) .media {
-      /* Size the camera panel off the *height* it's actually given (which is already capped
-         by the locked card height) rather than off a share of the width - driving it from
-         width was what let a wide-but-short 12x5 card push the media panel taller than the
-         card itself. */
-      flex: 0 0 auto;
-      width: auto;
-      height: 100%;
-      max-width: 40%;
-      aspect-ratio: 4 / 3;
+    /* Both panes share the stacked column's height proportionally and are allowed to shrink
+       (min-height: 0) rather than the sidebar forcing its full content height regardless of
+       how much room is actually available - that mismatch was overflowing .top-row's own box
+       even though nothing overflowed the card overall. The sidebar scrolls internally as a
+       last resort if it still doesn't fit once fully shrunk. */
+    .top-row:not(.no-media) .media {
+      flex: 1 1 40%;
+      min-height: 0;
     }
-    .body:not(.no-media) .info {
-      flex: 1 1 auto;
-      justify-content: center;
+    .top-row:not(.no-media) .stats-sidebar {
+      flex: 1 1 60%;
+      max-width: none;
+      min-height: 0;
+      overflow-y: auto;
     }
-  }
-
-  /* Extra-wide: give the tile grid room to breathe and bump up the title a touch. */
-  @container u1-card (min-width: 720px) {
-    .tiles {
-      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-    }
-    .header .title {
-      font-size: 1.35rem;
-    }
-  }
-
-  /* Narrow card (a small dashboard column, or a phone-width dashboard where even a "full
-     width" 12-column card renders narrow): tighten up the tile grid and controls so nothing
-     gets too cramped to read or tap. */
-  @container u1-card (max-width: 320px) {
-    .tiles {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    .controls ha-button {
-      min-width: 0;
-      font-size: 0.85rem;
-    }
-    .header .title {
-      font-size: 1.05rem;
-    }
-  }
-
-  .header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .header .title {
-    font-size: 1.2rem;
-    font-weight: 500;
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 10px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-transform: capitalize;
-    color: white;
-    background: var(--disabled-text-color);
-    white-space: nowrap;
-  }
-  .status-pill.printing {
-    background: var(--info-color, #039be5);
-  }
-  .status-pill.paused {
-    background: var(--warning-color, #ff9800);
-  }
-  .status-pill.complete {
-    background: var(--success-color, #4caf50);
-  }
-  .status-pill.error,
-  .status-pill.cancelled {
-    background: var(--error-color, #db4437);
-  }
-  .status-pill.standby,
-  .status-pill.ready {
-    background: var(--disabled-text-color, #9e9e9e);
-  }
-
-  .header-icons {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-  }
-  .header-icons ha-icon-button {
-    --mdc-icon-button-size: 36px;
-  }
-  .header-icons ha-icon-button.active {
-    color: var(--u1-accent);
   }
 
   .media {
     position: relative;
-    width: 100%;
-    aspect-ratio: 4 / 3;
+    flex: 1 1 auto;
+    min-width: 0;
     border-radius: var(--ha-card-border-radius, 12px);
     overflow: hidden;
     background: var(--secondary-background-color, #eee);
@@ -178,7 +78,7 @@ export default css`
   .media img {
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    object-fit: cover;
     background: black;
   }
   .media .no-media {
@@ -192,17 +92,25 @@ export default css`
     gap: 8px;
   }
   .media .no-media ha-icon {
-    --mdc-icon-size: 48px;
+    --mdc-icon-size: 40px;
   }
 
-  .media-toggle {
+  .media-view-toggle {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(0, 0, 0, 0.55);
-    border-radius: 50%;
+    top: 4px;
+    left: 4px;
     color: white;
-    --mdc-icon-button-size: 36px;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+    --mdc-icon-button-size: 32px;
+  }
+
+  .media-expand {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    color: white;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.7));
+    --mdc-icon-button-size: 32px;
   }
 
   .media-overlay {
@@ -249,117 +157,196 @@ export default css`
     opacity: 0.9;
   }
 
-  .tiles {
+  /* ---- compact stat sidebar --------------------------------------------------------------- */
+
+  .stats-sidebar {
+    flex: 0 0 38%;
+    max-width: 230px;
+    min-width: 130px;
     display: grid;
+    /* 3 columns (2 rows for up to 6 cells - bed, cavity, 4 tools) rather than 2 columns (3 rows):
+       the sidebar's height is whatever's left over after the camera/status/controls/sliders, and
+       a 3-row stack of cells could ask for more height than that leftover space actually has,
+       clipping the bottom row against stats-sidebar's own overflow:hidden. Fewer rows keeps each
+       cell's fixed content height comfortably inside the space that's actually available. */
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    /* The grid's own background shows through the 1px gaps as hairline dividers between cells -
+       simpler and more robust than adding individual borders to a dynamic set of cells. */
+    background: var(--divider-color);
+    border-radius: 10px;
+    overflow: hidden;
+    /* Default (stretch) content alignment: the rows share the sidebar's full height evenly
+       rather than clumping at the top and leaving dead space below on a tall media panel. */
+    align-content: stretch;
+  }
+  .stats-sidebar.full {
+    flex: 1 1 auto;
+    max-width: none;
     grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
-    gap: 8px;
   }
 
-  .tile {
-    background: var(--secondary-background-color, #f2f2f2);
-    border-radius: 10px;
-    padding: 8px 6px;
+  .stat-cell {
+    background: var(--u1-tile-bg);
+    padding: 4px 5px;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 2px;
+    justify-content: center;
+    gap: 1px;
     cursor: pointer;
     position: relative;
     min-width: 0;
   }
-  .tile:hover {
+  .stat-cell:hover {
     filter: brightness(0.97);
   }
-  .tile.unavailable {
-    opacity: 0.4;
-    pointer-events: none;
-  }
-  .tile.active-tool {
-    box-shadow: 0 0 0 2px var(--u1-accent) inset;
-  }
-  .tile ha-icon {
-    --mdc-icon-size: 18px;
-    color: var(--secondary-text-color);
-  }
-  .tile .tile-label {
-    font-size: 0.68rem;
+  .stat-top {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.62rem;
     color: var(--secondary-text-color);
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.02em;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
   }
-  .tile .tile-value {
-    font-size: 1.05rem;
+  .stat-top ha-icon {
+    --mdc-icon-size: 13px;
+    flex: 0 0 auto;
+  }
+  .stat-target {
+    margin-left: auto;
+    text-transform: none;
+    opacity: 0.85;
+  }
+  .stat-value {
+    font-size: 1.15rem;
     font-weight: 600;
-    line-height: 1.1;
+    line-height: 1.15;
   }
-  .tile .tile-sub {
-    font-size: 0.68rem;
-    color: var(--secondary-text-color);
-  }
-  .tile.heating .tile-value {
+  .stat-value.heating {
     color: var(--warning-color, #ff9800);
   }
-  .tile .filament-dot {
+  .stat-cell .filament-dot {
     position: absolute;
-    top: 6px;
-    right: 6px;
-    width: 8px;
-    height: 8px;
+    top: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     background: var(--disabled-text-color);
   }
-  .tile .filament-dot.present {
+  .stat-cell .filament-dot.present {
     background: var(--success-color, #4caf50);
   }
-  .tile .filament-dot.out {
+  .stat-cell .filament-dot.out {
     background: var(--error-color, #db4437);
   }
 
+  /* ---- status line, below the top row ------------------------------------------------------ */
+
+  .status-line {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.8rem;
+    min-width: 0;
+  }
+  .status-text {
+    color: var(--secondary-text-color);
+    text-transform: capitalize;
+  }
+  .status-message {
+    color: var(--secondary-text-color);
+    font-style: italic;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  /* ---- icon-button toolbar ------------------------------------------------------------------ */
+
   .controls {
+    flex: 0 0 auto;
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  .icon-btn {
+    /* A fixed, tasteful button size rather than stretching to divide up the full row width -
+       on a locked-wide 12-column card that stretch made each button balloon to well over
+       100px square. Centered as a compact group instead of spread edge to edge. */
+    width: 48px;
+    height: 48px;
+    flex: 0 0 auto;
+    display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: center;
+    background: var(--secondary-background-color, #333);
+    color: var(--primary-text-color);
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    padding: 0;
+    font: inherit;
   }
-  .controls ha-button {
-    flex: 1 1 auto;
-    min-width: 84px;
+  .icon-btn ha-icon {
+    --mdc-icon-size: 20px;
+    pointer-events: none;
   }
-  .controls .icon-button {
-    --mdc-icon-button-size: 44px;
+  .icon-btn:hover:not(:disabled) {
+    filter: brightness(1.15);
   }
-  .controls .stop-button {
-    --mdc-theme-primary: var(--error-color, #db4437);
+  .icon-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+  .icon-btn.active {
+    background: var(--u1-accent);
+    color: white;
+  }
+  .icon-btn.danger {
     color: var(--error-color, #db4437);
   }
 
+  /* ---- sliders -------------------------------------------------------------------------- */
+
   .speed-row {
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--secondary-text-color);
   }
   .speed-row ha-icon {
-    --mdc-icon-size: 18px;
+    --mdc-icon-size: 16px;
   }
   .speed-row input[type="range"] {
     flex: 1;
     accent-color: var(--u1-accent);
   }
   .speed-row .speed-value {
-    min-width: 42px;
+    min-width: 38px;
     text-align: right;
     color: var(--primary-text-color);
     font-weight: 600;
   }
 
+  /* ---- advanced section ------------------------------------------------------------------ */
+
   .advanced-toggle {
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 4px;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     color: var(--secondary-text-color);
     cursor: pointer;
     padding: 2px 0;
@@ -369,16 +356,19 @@ export default css`
   }
 
   .advanced {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     border-top: 1px solid var(--divider-color);
-    padding-top: 8px;
+    padding-top: 6px;
   }
   .advanced .row {
     display: flex;
     justify-content: space-between;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
   }
   .advanced .row span:first-child {
     color: var(--secondary-text-color);

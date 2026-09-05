@@ -10,11 +10,6 @@ const SCHEMA = [
     selector: { device: { filter: { integration: INTEGRATION_DOMAIN } } },
   },
   {
-    name: "title",
-    label: "Card title (optional)",
-    selector: { text: {} },
-  },
-  {
     name: "show_camera",
     label: "Show camera / thumbnail panel",
     selector: { boolean: {} },

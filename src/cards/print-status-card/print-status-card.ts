@@ -58,11 +58,9 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     };
   }
 
-  // Current API (HA sections/grid view). 12 columns x 5 rows is the primary/default size -
-  // roughly a landscape card wide enough for the camera and stat tiles to sit side by side.
-  // Still resizable by the user within the min/max bounds below.
-  // min === max on both axes locks the card at exactly 12x5 - the dashboard editor's resize
-  // handles won't be able to drag it to any other size.
+  // Current API (HA sections/grid view). Locked to exactly 12 columns x 5 rows - a landscape
+  // box wide enough for the camera and stat sidebar to sit side by side. min === max on both
+  // axes means the dashboard editor's resize handles can't drag it to any other size.
   public getGridOptions() {
     return {
       columns: 12,
@@ -197,62 +195,25 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
 
     return html`
       <ha-card>
-        ${this._renderHeader()}
-        <div class="body ${showMedia ? "" : "no-media"}">
-          ${showMedia ? this._renderMedia() : nothing}
-          <div class="info">
-            ${this._renderMessage()} ${this._renderTiles()} ${this._renderControls()}
-            ${this._renderAdvancedToggle()}
-            ${this._advancedExpanded ? this._renderAdvanced() : nothing}
-          </div>
+        <div class="top-row ${showMedia ? "" : "no-media"}">
+          ${showMedia ? this._renderMedia() : nothing} ${this._renderStatsSidebar()}
         </div>
+        ${this._renderStatusLine()} ${this._renderControls()} ${this._renderSliders()}
+        ${this._renderAdvancedToggle()} ${this._advancedExpanded ? this._renderAdvanced() : nothing}
       </ha-card>
       ${this._confirm ? this._renderConfirmDialog() : nothing}
     `;
   }
 
-  private _renderHeader() {
-    const title = this._config.title || "Snapmaker U1";
+  private _renderStatusLine() {
     const state = this._printState();
-    const light = this._lightEntity();
-    const power = this._powerEntity();
+    const message = helpers.getState(this._hass, this._e("printer_message"));
+    const showMessage = !!message && !/printer is ready/i.test(message);
 
     return html`
-      <div class="header">
-        <div class="title">${title}</div>
-        <div class="status-pill ${state}">${state}</div>
-        <div class="header-icons">
-          ${
-            light
-              ? html`
-                  <ha-icon-button
-                    class="${helpers.getState(this._hass, light) === "on" ? "active" : ""}"
-                    @click=${() => helpers.toggleDomain(this._hass, "light", light)}
-                  >
-                    <ha-icon
-                      icon=${
-                        helpers.getState(this._hass, light) === "on"
-                          ? "mdi:lightbulb-on"
-                          : "mdi:lightbulb-outline"
-                      }
-                    ></ha-icon>
-                  </ha-icon-button>
-                `
-              : nothing
-          }
-          ${
-            power
-              ? html`
-                  <ha-icon-button
-                    class="${helpers.getState(this._hass, power) === "on" ? "active" : ""}"
-                    @click=${() => helpers.toggleDomain(this._hass, "switch", power)}
-                  >
-                    <ha-icon icon="mdi:power-plug"></ha-icon>
-                  </ha-icon-button>
-                `
-              : nothing
-          }
-        </div>
+      <div class="status-line">
+        <span class="status-text">${state}</span>
+        ${showMessage ? html`<span class="status-message">${message}</span>` : nothing}
       </div>
     `;
   }
@@ -311,8 +272,25 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
         ${
           canToggle
             ? html`
-                <ha-icon-button class="media-toggle" @click=${this._toggleMediaView}>
-                  <ha-icon icon=${view === "webcam" ? "mdi:image" : "mdi:cctv"}></ha-icon>
+                <ha-icon-button
+                  class="media-view-toggle"
+                  title=${view === "webcam" ? "Switch to thumbnail" : "Switch to live camera"}
+                  @click=${this._toggleMediaView}
+                >
+                  <ha-icon icon="mdi:camera-outline"></ha-icon>
+                </ha-icon-button>
+              `
+            : nothing
+        }
+        ${
+          entity && !unavailable
+            ? html`
+                <ha-icon-button
+                  class="media-expand"
+                  title="Expand"
+                  @click=${() => helpers.showEntityMoreInfo(this, entity)}
+                >
+                  <ha-icon icon="mdi:arrow-expand"></ha-icon>
                 </ha-icon-button>
               `
             : nothing
@@ -345,62 +323,70 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     `;
   }
 
-  private _renderMessage() {
-    const message = helpers.getState(this._hass, this._e("printer_message"));
-    if (!message || /printer is ready/i.test(message)) {
-      return nothing;
-    }
-    return html`<div class="message-row">${message}</div>`;
+  // A compact two-tier stat cell: a small icon+label(/target) row on top, a large primary
+  // value below it. Used for bed/cavity/each tool so the sidebar can show several of these in
+  // the space a single old-style boxed tile used to take.
+  private _statCell(opts: {
+    icon: string;
+    label: string;
+    value: string;
+    sub?: string;
+    heating?: boolean;
+    onClick?: () => void;
+    dot?: "present" | "out" | null;
+  }) {
+    return html`
+      <div class="stat-cell" @click=${opts.onClick}>
+        ${opts.dot ? html`<span class="filament-dot ${opts.dot}"></span>` : nothing}
+        <div class="stat-top">
+          <ha-icon icon=${opts.icon}></ha-icon>
+          <span>${opts.label}</span>
+          ${opts.sub ? html`<span class="stat-target">${opts.sub}</span>` : nothing}
+        </div>
+        <div class="stat-value ${opts.heating ? "heating" : ""}">${opts.value}</div>
+      </div>
+    `;
   }
 
-  private _renderTiles() {
+  private _renderStatsSidebar() {
     const bedTemp = this._e("bed_temp");
     const bedTarget = helpers.getNumericState(this._hass, this._e("bed_target"));
     const cavityTemp = this._e("cavity_temp");
+    const cavityFanSpeed = this._e("cavity_fan_speed");
 
-    const tiles = [
+    const cells = [
       bedTemp
-        ? html`
-            <div
-              class="tile ${bedTarget && bedTarget > 0 ? "heating" : ""}"
-              @click=${() => helpers.showEntityMoreInfo(this, bedTemp)}
-            >
-              <ha-icon icon="mdi:widgets-outline"></ha-icon>
-              <span class="tile-label">Bed</span>
-              <span class="tile-value">${helpers.formatTemp(this._hass, bedTemp)}</span>
-              ${bedTarget ? html`<span class="tile-sub">→ ${Math.round(bedTarget)}°</span>` : nothing}
-            </div>
-          `
+        ? this._statCell({
+            icon: "mdi:widgets-outline",
+            label: "Bed",
+            sub: bedTarget ? `→ ${Math.round(bedTarget)}°` : undefined,
+            value: helpers.formatTemp(this._hass, bedTemp),
+            heating: !!bedTarget && bedTarget > 0,
+            onClick: () => helpers.showEntityMoreInfo(this, bedTemp),
+          })
         : nothing,
       cavityTemp
-        ? html`
-            <div class="tile" @click=${() => helpers.showEntityMoreInfo(this, cavityTemp)}>
-              <ha-icon icon="mdi:home-thermometer-outline"></ha-icon>
-              <span class="tile-label">Cavity</span>
-              <span class="tile-value">${helpers.formatTemp(this._hass, cavityTemp)}</span>
-              ${
-                this._e("cavity_fan_speed")
-                  ? html`<span class="tile-sub"
-                      >${helpers.formatPercent(
-                        helpers.getNumericState(this._hass, this._e("cavity_fan_speed"))
-                      )}
-                      fan</span
-                    >`
-                  : nothing
-              }
-            </div>
-          `
+        ? this._statCell({
+            icon: "mdi:home-thermometer-outline",
+            label: "Cavity",
+            sub: cavityFanSpeed
+              ? `${helpers.formatPercent(helpers.getNumericState(this._hass, cavityFanSpeed))} fan`
+              : undefined,
+            value: helpers.formatTemp(this._hass, cavityTemp),
+            onClick: () => helpers.showEntityMoreInfo(this, cavityTemp),
+          })
         : nothing,
     ];
 
     for (let n = 0; n < TOOL_COUNT; n++) {
-      tiles.push(this._renderToolTile(n));
+      cells.push(this._renderToolStat(n));
     }
 
-    return html`<div class="tiles">${tiles}</div>`;
+    const showMedia = this._config.show_camera !== false;
+    return html`<div class="stats-sidebar ${showMedia ? "" : "full"}">${cells}</div>`;
   }
 
-  private _renderToolTile(n: number) {
+  private _renderToolStat(n: number) {
     const temp = this._e(`tool${n}_temp`);
     if (!temp) {
       return nothing;
@@ -408,94 +394,121 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     const target = helpers.getNumericState(this._hass, this._e(`tool${n}_target`));
     const filament = this._e(`tool${n}_filament`);
     const filamentState = helpers.getState(this._hass, filament);
-    const filamentClass = filamentState === "on" ? "present" : filamentState === "off" ? "out" : "";
+    const filamentClass =
+      filamentState === "on" ? "present" : filamentState === "off" ? "out" : null;
 
+    return this._statCell({
+      icon: "mdi:printer-3d-nozzle",
+      label: `E${n}`,
+      sub: target ? `→ ${Math.round(target)}°` : undefined,
+      value: helpers.formatTemp(this._hass, temp),
+      heating: !!target && target > 0,
+      dot: filament ? filamentClass : null,
+      onClick: () => helpers.showEntityMoreInfo(this, temp),
+    });
+  }
+
+  // One square icon button for the toolbar row. `active`/`danger` just add a color class;
+  // the actual click handling and confirmation prompts are the caller's job.
+  private _iconButton(opts: {
+    icon: string;
+    title: string;
+    active?: boolean;
+    danger?: boolean;
+    disabled?: boolean;
+    onClick: () => void;
+  }) {
     return html`
-      <div
-        class="tile ${target && target > 0 ? "heating" : ""}"
-        @click=${() => helpers.showEntityMoreInfo(this, temp)}
+      <button
+        class="icon-btn ${opts.active ? "active" : ""} ${opts.danger ? "danger" : ""}"
+        title=${opts.title}
+        ?disabled=${opts.disabled}
+        @click=${opts.onClick}
       >
-        ${filament ? html`<span class="filament-dot ${filamentClass}"></span>` : nothing}
-        <ha-icon icon="mdi:printer-3d-nozzle"></ha-icon>
-        <span class="tile-label">E${n}</span>
-        <span class="tile-value">${helpers.formatTemp(this._hass, temp)}</span>
-        ${target ? html`<span class="tile-sub">→ ${Math.round(target)}°</span>` : nothing}
-      </div>
+        <ha-icon icon=${opts.icon}></ha-icon>
+      </button>
     `;
   }
 
   private _renderControls() {
     const state = this._printState();
+    const light = this._lightEntity();
+    const power = this._powerEntity();
     const pause = this._e("pause_print");
     const resume = this._e("resume_print");
     const cancel = this._e("cancel_print");
     const estop = this._e("emergency_stop");
+
+    const buttons = [
+      light
+        ? this._iconButton({
+            icon:
+              helpers.getState(this._hass, light) === "on"
+                ? "mdi:lightbulb-on"
+                : "mdi:lightbulb-outline",
+            title: "Cavity light",
+            active: helpers.getState(this._hass, light) === "on",
+            onClick: () => helpers.toggleDomain(this._hass, "light", light),
+          })
+        : nothing,
+      power
+        ? this._iconButton({
+            icon: "mdi:power-plug",
+            title: "Power plug",
+            active: helpers.getState(this._hass, power) === "on",
+            onClick: () => helpers.toggleDomain(this._hass, "switch", power),
+          })
+        : nothing,
+      state === "paused" && resume
+        ? this._iconButton({
+            icon: "mdi:play",
+            title: "Resume",
+            onClick: () => helpers.pressButton(this._hass, resume),
+          })
+        : pause
+          ? this._iconButton({
+              icon: "mdi:pause",
+              title: "Pause",
+              disabled: state !== "printing",
+              onClick: () => helpers.pressButton(this._hass, pause),
+            })
+          : nothing,
+      cancel
+        ? this._iconButton({
+            icon: "mdi:stop",
+            title: "Cancel print",
+            danger: true,
+            disabled: !this._isActive(),
+            onClick: () =>
+              this._requestConfirm(
+                "Cancel the current print? This can't be undone.",
+                () => helpers.pressButton(this._hass, cancel),
+                true
+              ),
+          })
+        : nothing,
+      estop
+        ? this._iconButton({
+            icon: "mdi:alert-octagon",
+            title: "Emergency stop",
+            danger: true,
+            onClick: () =>
+              this._requestConfirm(
+                "Trigger an EMERGENCY STOP? The printer will halt immediately and require a restart.",
+                () => helpers.pressButton(this._hass, estop),
+                true
+              ),
+          })
+        : nothing,
+    ];
+
+    return html`<div class="controls">${buttons}</div>`;
+  }
+
+  private _renderSliders() {
     const speedFactor = this._e("speed_factor");
     const cavityFanSpeed = this._e("cavity_fan_speed");
-
-    const primaryButtons = html`
-      <div class="controls">
-        ${
-          state === "paused" && resume
-            ? html`
-                <ha-button @click=${() => helpers.pressButton(this._hass, resume)}>
-                  <ha-icon slot="icon" icon="mdi:play"></ha-icon>
-                  Resume
-                </ha-button>
-              `
-            : pause
-              ? html`
-                  <ha-button
-                    ?disabled=${state !== "printing"}
-                    @click=${() => helpers.pressButton(this._hass, pause)}
-                  >
-                    <ha-icon slot="icon" icon="mdi:pause"></ha-icon>
-                    Pause
-                  </ha-button>
-                `
-              : nothing
-        }
-        ${
-          cancel
-            ? html`
-                <ha-button
-                  ?disabled=${!this._isActive()}
-                  @click=${() =>
-                    this._requestConfirm(
-                      "Cancel the current print? This can't be undone.",
-                      () => helpers.pressButton(this._hass, cancel),
-                      true
-                    )}
-                >
-                  <ha-icon slot="icon" icon="mdi:stop"></ha-icon>
-                  Cancel
-                </ha-button>
-              `
-            : nothing
-        }
-        ${
-          estop
-            ? html`
-                <ha-icon-button
-                  class="icon-button stop-button"
-                  title="Emergency stop"
-                  @click=${() =>
-                    this._requestConfirm(
-                      "Trigger an EMERGENCY STOP? The printer will halt immediately and require a restart.",
-                      () => helpers.pressButton(this._hass, estop),
-                      true
-                    )}
-                >
-                  <ha-icon icon="mdi:alert-octagon"></ha-icon>
-                </ha-icon-button>
-              `
-            : nothing
-        }
-      </div>
-    `;
-
     return html`
-      ${primaryButtons}
       ${speedFactor ? this._renderSlider("mdi:speedometer", "Speed", speedFactor, 25, 200) : nothing}
       ${
         cavityFanSpeed

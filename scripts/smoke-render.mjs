@@ -103,8 +103,14 @@ async function main() {
   if (!shadow.innerHTML.toLowerCase().includes("tool")) {
     throw new Error("Rendered output doesn't contain the expected tool-tile content.");
   }
-  if (!shadow.querySelector(".body") || !shadow.querySelector(".info")) {
-    throw new Error("Expected .body/.info wrapper elements (responsive layout) are missing.");
+  if (!shadow.querySelector(".top-row") || !shadow.querySelector(".stats-sidebar")) {
+    throw new Error("Expected .top-row/.stats-sidebar layout elements are missing.");
+  }
+  const iconButtons = shadow.querySelectorAll(".controls .icon-btn");
+  if (iconButtons.length < 3) {
+    throw new Error(
+      `Expected several .icon-btn controls in the toolbar, found ${iconButtons.length}.`
+    );
   }
 
   // Locked to exactly 12x5 - min must equal max on both axes or the dashboard editor's resize

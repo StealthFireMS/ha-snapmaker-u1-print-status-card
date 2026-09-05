@@ -16,14 +16,17 @@ rather than the cloud.
 
 ## What it shows
 
-- Live camera feed **or** the current print's thumbnail, with a one-tap toggle between the two,
-  a progress bar, filename, layer count and time remaining overlaid on top.
-- Bed, cavity, and all four tool (E0-E3) temperatures at a glance, each with its target
-  temperature and a filament-present indicator, tap any tile to open its full history.
-- Pause / Resume / Cancel / Emergency Stop, with a confirmation dialog before anything
-  destructive.
+- Live camera feed **or** the current print's thumbnail on the left, with a view-toggle icon
+  (top-left) and an expand-to-more-info icon (bottom-right); a progress bar, filename, layer
+  count and time remaining overlay on top while a print is active.
+- A compact stat sidebar next to the camera: bed, cavity, and all four tool (E0-E3) temperatures
+  at a glance, each with its target temperature and (for tools) a filament-present indicator -
+  tap any cell to open its full history.
+- The current print state (e.g. "Printing", "Offline") as a plain status line below the
+  camera/stats row.
+- A row of square icon buttons for Cavity light, Power plug, Pause/Resume, Cancel, and Emergency
+  Stop, with a confirmation dialog before anything destructive.
 - Speed override and cavity fan sliders.
-- Cavity light and (optionally) a smart-plug power switch in the header.
 - A collapsible **Advanced** section: toolhead position, per-axis homing (X/Y/Z), ETA/elapsed,
   ~~lifetime~~ total print time/filament/jobs, ~~queue~~ print queue, and system load - all
   folded away until you want them.
@@ -66,19 +69,18 @@ show_camera: true
 default_view: auto               # auto | webcam | thumbnail
 ```
 
-All other options (camera/light/power overrides, advanced section default, title) are best set
-through the visual editor - open the card's settings and everything is there via dropdowns and
-entity pickers.
+All other options (camera/light/power overrides, advanced section default) are best set through
+the visual editor - open the card's settings and everything is there via dropdowns and entity
+pickers.
 
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `printer` | device | *(required)* | The Moonraker device for your U1. |
-| `title` | string | `Snapmaker U1` | Header title. |
 | `show_camera` | boolean | `true` | Show the camera/thumbnail panel. |
 | `default_view` | `auto` \| `webcam` \| `thumbnail` | `auto` | `auto` shows the webcam while printing/paused and the thumbnail otherwise, with a manual toggle. |
 | `camera_entity` | entity (camera) | *auto-detected* | Override the webcam entity. |
 | `light_entity` | entity (light) | *auto-detected* | Override the cavity light entity. |
-| `power_entity` | entity (switch) | *(none)* | A smart-plug switch to show/toggle in the header. |
+| `power_entity` | entity (switch) | *(none)* | A smart-plug switch to show/toggle as an icon button. |
 | `show_advanced_default` | boolean | `false` | Expand the Advanced section by default. |
 
 ### Card size
