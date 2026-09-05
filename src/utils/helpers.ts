@@ -292,16 +292,67 @@ export function formatPercent(value: number | undefined, fromRatio = false): str
   return `${Math.round(pct)}%`;
 }
 
+export function fireEvent(
+  target: HTMLElement,
+  type: string,
+  detail: any = {},
+  options: { bubbles?: boolean; cancelable?: boolean; composed?: boolean } = {}
+): CustomEvent {
+  const event = new CustomEvent(type, {
+    bubbles: options.bubbles ?? true,
+    cancelable: options.cancelable ?? false,
+    composed: options.composed ?? true,
+    detail,
+  });
+  target.dispatchEvent(event);
+  return event;
+}
+
 export function showEntityMoreInfo(target: HTMLElement, entity?: RegistryEntity) {
   if (!entity?.entity_id) {
     return;
   }
-  const event = new CustomEvent("hass-more-info", {
-    detail: { entityId: entity.entity_id },
-    bubbles: true,
-    composed: true,
+  fireEvent(target, "hass-more-info", { entityId: entity.entity_id });
+}
+
+export interface ConfirmationDialogParams {
+  title?: string;
+  text: string;
+  confirmText?: string;
+  dismissText?: string;
+  destructive?: boolean;
+  confirm: () => void;
+  cancel?: () => void;
+}
+
+/**
+ * Opens Home Assistant's own built-in confirmation dialog (the same "dialog-box" element HA's
+ * own UI uses for things like delete confirmations), via the `show-dialog` event its dialog
+ * manager listens for at the top of the document.
+ *
+ * This is deliberately NOT a hand-rolled `<ha-dialog>` rendered inside this card's own shadow
+ * DOM. This card's `:host` sets `container-type` (for its CSS container-query breakpoints),
+ * which - like a CSS `transform` - makes the host establish a new containing block for any
+ * `position: fixed` descendant. A dialog nested inside it would end up confined to the card's
+ * own small on-screen box instead of covering the viewport, which can leave its buttons
+ * clipped/unreachable even though the dialog's text is visible. Going through HA's own dialog
+ * manager renders the dialog at the document root, entirely outside our card, so it isn't
+ * affected by any containment our card sets up.
+ */
+export function showConfirmationDialog(target: HTMLElement, params: ConfirmationDialogParams) {
+  fireEvent(target, "show-dialog", {
+    dialogTag: "dialog-box",
+    dialogImport: () => customElements.whenDefined("dialog-box"),
+    dialogParams: {
+      title: params.title,
+      text: params.text,
+      confirmText: params.confirmText ?? "Confirm",
+      dismissText: params.dismissText ?? "Cancel",
+      destructive: params.destructive,
+      confirm: params.confirm,
+      cancel: params.cancel,
+    },
   });
-  target.dispatchEvent(event);
 }
 
 export function pressButton(hass: any, entity?: RegistryEntity) {

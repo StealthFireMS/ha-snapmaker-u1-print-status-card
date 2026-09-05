@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.1.5
+
+### Fixed
+
+- **Emergency Stop (and Cancel print) couldn't actually be triggered** - the confirmation dialog
+  showed its text, but confirming it did nothing. Root cause: the card's own CSS container query
+  setup (`container-type` on the card, needed for it to reflow at different sizes) makes the card
+  establish a new containing block for `position: fixed` elements, the same way a CSS `transform`
+  does. The confirmation dialog was a plain `<ha-dialog>` rendered inside the card's own shadow
+  DOM, so it ended up confined to the card's small on-screen box instead of covering the screen,
+  leaving its buttons out of reach. Fixed by routing both confirmations through Home Assistant's
+  own built-in confirmation dialog (the same one HA's UI uses for things like delete
+  confirmations), which renders at the top of the document and isn't affected by the card's own
+  containment.
+- **The camera's expand button couldn't be clicked** while a print was active - the progress
+  overlay drawn on top of the video (filename/progress bar) sat on top of it in paint order, and
+  its transparent hit-area silently absorbed the click even though the button was still visible
+  underneath. Fixed by making that overlay non-interactive (`pointer-events: none`), so clicks
+  always reach the buttons drawn over the video regardless of what else is on top of it visually.
+- **The Cavity temperature cell's text was getting clipped** - it was the only sidebar cell
+  pairing a longer label ("Cavity") with a second badge (fan speed), and the two together didn't
+  fit the sidebar's compact ~76px-wide cells. Removed the fan-speed badge from that cell (it's
+  still one tap away via the cell's own more-info, its hover tooltip, and the Cavity fan slider
+  further down the card) and added an ellipsis fallback to every stat cell so any future overflow
+  truncates gracefully instead of hard-clipping mid-character.
+
+### Changed
+
+- Moved the layer count (`Layer X/Y`) and print percentage off the video overlay and down to the
+  status line, next to the plain-text print state - both are always legible there and can no
+  longer end up sitting on top of (and blocking clicks on) the camera's own buttons. The time
+  remaining moved down alongside them for the same reason.
+- Added a hover tooltip to every stat cell (Bed/Cavity/E0-E3) with its full reading, and to the
+  small filament-present dot on each tool cell explaining what it means: green = filament loaded,
+  red = filament out. Handy since the compact cells only have room for a couple of digits at a
+  glance.
+
 ## 0.1.4
 
 ### Changed
@@ -50,7 +87,7 @@ Redesigned the card's layout and visual style to match a more compact, dashboard
   actually fill the height that size hands it (`height: 100%` from the host down through
   `ha-card`) instead of sizing itself off its own content, and clipping/scrolling anything that's
   still too tall to fit rather than letting it draw outside the card.
-- Reworked the wide (side-by-side) layout so the camera panel's size comes from the *height* it's
+- Reworked the wide (side-by-side) layout so the camera panel's size comes from the _height_ it's
   given rather than a share of the width - sizing it off width is what let a short-but-wide 12x5
   card push the camera taller than the card itself on wide screens.
 
@@ -98,7 +135,7 @@ Redesigned the card's layout and visual style to match a more compact, dashboard
   frontend only ever runs in evergreen, ES-module-capable browsers - there is nothing that
   actually needs downleveling, so Babel now passes modern syntax through untouched.
 
-- Added `scripts/smoke-render.mjs`, a jsdom-based smoke test that mounts the *built* bundle and
+- Added `scripts/smoke-render.mjs`, a jsdom-based smoke test that mounts the _built_ bundle and
   forces every render branch (including the array-mapped tool tiles and advanced-info rows,
   which is exactly the code path that broke) to catch this class of bug in CI going forward -
   neither `npm run build:strict` (a TypeScript source check) nor `npm run verify` (an

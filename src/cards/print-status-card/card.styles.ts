@@ -124,6 +124,10 @@ export default css`
     display: flex;
     flex-direction: column;
     gap: 4px;
+    /* Purely informational (filename + a progress bar, no controls of its own) - without this,
+       its transparent hit-box sat on top of the expand button in the bottom-right corner and
+       silently ate its clicks even though the button was still visible underneath. */
+    pointer-events: none;
   }
   .media-overlay .filename {
     font-size: 0.85rem;
@@ -149,12 +153,6 @@ export default css`
     background: var(--u1-accent);
     border-radius: 3px;
     transition: width 0.4s ease;
-  }
-  .media-overlay .meta-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.75rem;
-    opacity: 0.9;
   }
 
   /* ---- compact stat sidebar --------------------------------------------------------------- */
@@ -209,17 +207,33 @@ export default css`
     text-transform: uppercase;
     letter-spacing: 0.02em;
     min-width: 0;
-    overflow: hidden;
-    white-space: nowrap;
   }
   .stat-top ha-icon {
     --mdc-icon-size: 13px;
     flex: 0 0 auto;
   }
+  /* Both the label ("Cavity") and the target/sub value share one tight row in a 3-column grid
+     cell - either can end up too wide to fit (e.g. "Cavity" is longer than "Bed"/"E0"). Each
+     gets its own min-width:0 + ellipsis so it shrinks and truncates gracefully instead of the
+     row hard-clipping mid-character against the cell's outer overflow:hidden. The cell's own
+     title attribute (see print-status-card.ts) always has the untruncated text on hover. */
+  .stat-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .stat-target {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 55%;
     margin-left: auto;
     text-transform: none;
     opacity: 0.85;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .stat-value {
     font-size: 1.15rem;
@@ -254,18 +268,30 @@ export default css`
     gap: 8px;
     font-size: 0.8rem;
     min-width: 0;
+    flex-wrap: wrap;
   }
   .status-text {
+    flex: 0 0 auto;
     color: var(--secondary-text-color);
     text-transform: capitalize;
   }
   .status-message {
+    flex: 1 1 auto;
     color: var(--secondary-text-color);
     font-style: italic;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+  }
+  /* Layer count / percent / time-left, moved here from an overlay on top of the video so
+     they're always legible and never sit on top of (and block clicks on) the camera's own
+     buttons. Pushed to the far right of the row via margin-left:auto. */
+  .status-progress {
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: var(--secondary-text-color);
+    white-space: nowrap;
   }
 
   /* ---- icon-button toolbar ------------------------------------------------------------------ */
@@ -387,9 +413,5 @@ export default css`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  ha-dialog .content {
-    padding: 8px 4px;
   }
 `;

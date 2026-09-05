@@ -6,7 +6,7 @@ through the [moonraker-home-assistant](https://github.com/marcolino/moonraker-ho
 integration.
 
 It's a from-scratch card in the same spirit as
-[greghesp/ha-bambulab-cards](https://github.com/greghesp/ha-bambulab-cards)' *Print Status Card*
+[greghesp/ha-bambulab-cards](https://github.com/greghesp/ha-bambulab-cards)' _Print Status Card_
 for Bambu Lab printers, rebuilt around what the U1's Moonraker integration actually exposes: a
 4-tool toolchanger (E0-E3), a heated cavity, and a live webcam feed from the firmware itself
 rather than the cloud.
@@ -64,24 +64,24 @@ YAML:
 
 ```yaml
 type: custom:snapmaker-u1-print-status-card
-printer: <your U1's device_id>   # pick it from the card editor's dropdown instead of typing this
+printer: <your U1's device_id> # pick it from the card editor's dropdown instead of typing this
 show_camera: true
-default_view: auto               # auto | webcam | thumbnail
+default_view: auto # auto | webcam | thumbnail
 ```
 
 All other options (camera/light/power overrides, advanced section default) are best set through
 the visual editor - open the card's settings and everything is there via dropdowns and entity
 pickers.
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `printer` | device | *(required)* | The Moonraker device for your U1. |
-| `show_camera` | boolean | `true` | Show the camera/thumbnail panel. |
-| `default_view` | `auto` \| `webcam` \| `thumbnail` | `auto` | `auto` shows the webcam while printing/paused and the thumbnail otherwise, with a manual toggle. |
-| `camera_entity` | entity (camera) | *auto-detected* | Override the webcam entity. |
-| `light_entity` | entity (light) | *auto-detected* | Override the cavity light entity. |
-| `power_entity` | entity (switch) | *(none)* | A smart-plug switch to show/toggle as an icon button. |
-| `show_advanced_default` | boolean | `false` | Expand the Advanced section by default. |
+| Option                  | Type                              | Default         | Description                                                                                      |
+| ----------------------- | --------------------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
+| `printer`               | device                            | _(required)_    | The Moonraker device for your U1.                                                                |
+| `show_camera`           | boolean                           | `true`          | Show the camera/thumbnail panel.                                                                 |
+| `default_view`          | `auto` \| `webcam` \| `thumbnail` | `auto`          | `auto` shows the webcam while printing/paused and the thumbnail otherwise, with a manual toggle. |
+| `camera_entity`         | entity (camera)                   | _auto-detected_ | Override the webcam entity.                                                                      |
+| `light_entity`          | entity (light)                    | _auto-detected_ | Override the cavity light entity.                                                                |
+| `power_entity`          | entity (switch)                   | _(none)_        | A smart-plug switch to show/toggle as an icon button.                                            |
+| `show_advanced_default` | boolean                           | `false`         | Expand the Advanced section by default.                                                          |
 
 ### Card size
 

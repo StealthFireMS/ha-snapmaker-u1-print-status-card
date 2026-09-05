@@ -141,6 +141,39 @@ async function main() {
     throw new Error("The removed 'Home all axes' control is still being rendered.");
   }
 
+  // The emergency-stop/cancel confirmations go through Home Assistant's own dialog manager
+  // (a "show-dialog" event caught at the document root) instead of a hand-rolled <ha-dialog>
+  // nested inside this card. A homegrown dialog would sit inside the card's own container-query
+  // containment box and could end up visually confined to the card's small on-screen size,
+  // leaving its buttons unreachable - see CHANGELOG. Confirm the event actually fires and
+  // carries a working confirm callback, rather than just trusting the source.
+  const estopButton = Array.from(shadow.querySelectorAll(".controls .icon-btn")).find((btn) =>
+    (btn.getAttribute("title") || "").toLowerCase().includes("emergency stop")
+  );
+  if (!estopButton) {
+    throw new Error("Emergency stop button not found in the toolbar.");
+  }
+  let dialogEvent;
+  el.addEventListener("show-dialog", (ev) => {
+    dialogEvent = ev;
+  });
+  estopButton.click();
+  if (!dialogEvent || dialogEvent.detail?.dialogTag !== "dialog-box") {
+    throw new Error(
+      "Clicking Emergency stop didn't dispatch a 'show-dialog' event for HA's own confirmation dialog."
+    );
+  }
+  if (typeof dialogEvent.detail?.dialogParams?.confirm !== "function") {
+    throw new Error("Emergency stop's show-dialog event is missing a working confirm callback.");
+  }
+  if (!shadow.querySelector("ha-dialog")) {
+    // Expected to be absent: the card no longer renders its own dialog element.
+  } else {
+    throw new Error(
+      "The card is still rendering its own <ha-dialog> - confirmations should go through HA's dialog manager instead."
+    );
+  }
+
   console.log(`Smoke test passed: rendered ${shadow.innerHTML.length} chars with no errors.`);
 }
 

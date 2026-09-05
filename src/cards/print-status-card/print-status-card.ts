@@ -15,12 +15,6 @@ registerCustomCard({
 
 type MediaView = "webcam" | "thumbnail";
 
-interface ConfirmAction {
-  body: string;
-  destructive?: boolean;
-  run: () => void;
-}
-
 function hash32(str: string): string {
   let h = 0x811c9dc5;
   for (let i = 0; i < str.length; i++) {
@@ -44,7 +38,6 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
   @state() private _entities: RoleMap = {};
   @state() private _manualView: MediaView | null = null;
   @state() private _advancedExpanded = false;
-  @state() private _confirm: ConfirmAction | null = null;
 
   public static async getConfigElement() {
     await import("./print-status-card-editor");
@@ -201,7 +194,6 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
         ${this._renderStatusLine()} ${this._renderControls()} ${this._renderSliders()}
         ${this._renderAdvancedToggle()} ${this._advancedExpanded ? this._renderAdvanced() : nothing}
       </ha-card>
-      ${this._confirm ? this._renderConfirmDialog() : nothing}
     `;
   }
 
@@ -210,10 +202,30 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     const message = helpers.getState(this._hass, this._e("printer_message"));
     const showMessage = !!message && !/printer is ready/i.test(message);
 
+    const progress = helpers.getNumericState(this._hass, this._e("progress"));
+    const showProgress = progress !== undefined;
+    const currentLayer = helpers.getState(this._hass, this._e("current_layer"));
+    const totalLayer = helpers.getState(this._hass, this._e("total_layer"));
+    const timeLeft = helpers.formatDuration(this._hass, this._e("print_time_left"));
+
+    // Layer count, print percentage, and time remaining all live here alongside the plain
+    // status text rather than as an overlay on top of the video, so they're always readable
+    // and never sit on top of (and block clicks on) the camera's own icon buttons.
+    const progressParts = [
+      currentLayer && totalLayer ? `Layer ${currentLayer}/${totalLayer}` : "",
+      helpers.formatPercent(progress, true),
+      this._isActive() ? `${timeLeft} left` : "",
+    ].filter(Boolean);
+
     return html`
       <div class="status-line">
         <span class="status-text">${state}</span>
         ${showMessage ? html`<span class="status-message">${message}</span>` : nothing}
+        ${
+          showProgress && progressParts.length
+            ? html`<span class="status-progress">${progressParts.join(" · ")}</span>`
+            : nothing
+        }
       </div>
     `;
   }
@@ -253,9 +265,6 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
 
     const progress = helpers.getNumericState(this._hass, this._e("progress"));
     const filename = helpers.getState(this._hass, this._e("filename")).replace(/\.gcode$/i, "");
-    const currentLayer = helpers.getState(this._hass, this._e("current_layer"));
-    const totalLayer = helpers.getState(this._hass, this._e("total_layer"));
-    const timeLeft = helpers.formatDuration(this._hass, this._e("print_time_left"));
 
     return html`
       <div class="media">
@@ -307,13 +316,6 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
                         style="width: ${Math.max(0, Math.min(100, progress * 100))}%"
                       ></div>
                     </div>
-                    <span>${helpers.formatPercent(progress, true)}</span>
-                  </div>
-                  <div class="meta-row">
-                    <span
-                      >${currentLayer && totalLayer ? `Layer ${currentLayer}/${totalLayer}` : ""}</span
-                    >
-                    <span>${this._isActive() ? `${timeLeft} left` : ""}</span>
                   </div>
                 </div>
               `
@@ -334,13 +336,21 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     heating?: boolean;
     onClick?: () => void;
     dot?: "present" | "out" | null;
+    title?: string;
   }) {
     return html`
-      <div class="stat-cell" @click=${opts.onClick}>
-        ${opts.dot ? html`<span class="filament-dot ${opts.dot}"></span>` : nothing}
+      <div class="stat-cell" title=${opts.title ?? ""} @click=${opts.onClick}>
+        ${
+          opts.dot
+            ? html`<span
+                class="filament-dot ${opts.dot}"
+                title=${opts.dot === "present" ? "Filament loaded" : "Filament out"}
+              ></span>`
+            : nothing
+        }
         <div class="stat-top">
           <ha-icon icon=${opts.icon}></ha-icon>
-          <span>${opts.label}</span>
+          <span class="stat-label">${opts.label}</span>
           ${opts.sub ? html`<span class="stat-target">${opts.sub}</span>` : nothing}
         </div>
         <div class="stat-value ${opts.heating ? "heating" : ""}">${opts.value}</div>
@@ -354,6 +364,10 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     const cavityTemp = this._e("cavity_temp");
     const cavityFanSpeed = this._e("cavity_fan_speed");
 
+    const cavityFanPct = cavityFanSpeed
+      ? helpers.getNumericState(this._hass, cavityFanSpeed)
+      : undefined;
+
     const cells = [
       bedTemp
         ? this._statCell({
@@ -363,17 +377,26 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
             value: helpers.formatTemp(this._hass, bedTemp),
             heating: !!bedTarget && bedTarget > 0,
             onClick: () => helpers.showEntityMoreInfo(this, bedTemp),
+            title: bedTarget
+              ? `Bed: ${helpers.formatTemp(this._hass, bedTemp)} (target ${Math.round(bedTarget)}°)`
+              : `Bed: ${helpers.formatTemp(this._hass, bedTemp)}`,
           })
         : nothing,
       cavityTemp
         ? this._statCell({
             icon: "mdi:home-thermometer-outline",
             label: "Cavity",
-            sub: cavityFanSpeed
-              ? `${helpers.formatPercent(helpers.getNumericState(this._hass, cavityFanSpeed))} fan`
-              : undefined,
+            // No "sub" badge here (unlike Bed/E0-E3, which pair their label with a short
+            // "→ target°"): "Cavity" is the longest label in the sidebar, and a 3-column cell
+            // is only ~76px wide, so pairing it with a fan-speed badge too was overflowing and
+            // getting clipped. The fan speed is still one tap away (this cell's own more-info,
+            // its hover tooltip below, and the Cavity fan slider further down the card).
             value: helpers.formatTemp(this._hass, cavityTemp),
             onClick: () => helpers.showEntityMoreInfo(this, cavityTemp),
+            title:
+              cavityFanPct !== undefined
+                ? `Cavity: ${helpers.formatTemp(this._hass, cavityTemp)} · Fan ${helpers.formatPercent(cavityFanPct)}`
+                : `Cavity: ${helpers.formatTemp(this._hass, cavityTemp)}`,
           })
         : nothing,
     ];
@@ -396,6 +419,12 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     const filamentState = helpers.getState(this._hass, filament);
     const filamentClass =
       filamentState === "on" ? "present" : filamentState === "off" ? "out" : null;
+    const filamentNote =
+      filamentClass === "present"
+        ? " · Filament loaded"
+        : filamentClass === "out"
+          ? " · Filament out"
+          : "";
 
     return this._statCell({
       icon: "mdi:printer-3d-nozzle",
@@ -405,6 +434,7 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
       heating: !!target && target > 0,
       dot: filament ? filamentClass : null,
       onClick: () => helpers.showEntityMoreInfo(this, temp),
+      title: `E${n}: ${helpers.formatTemp(this._hass, temp)}${target ? ` (target ${Math.round(target)}°)` : ""}${filamentNote}`,
     });
   }
 
@@ -480,11 +510,14 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
             danger: true,
             disabled: !this._isActive(),
             onClick: () =>
-              this._requestConfirm(
-                "Cancel the current print? This can't be undone.",
-                () => helpers.pressButton(this._hass, cancel),
-                true
-              ),
+              helpers.showConfirmationDialog(this, {
+                title: "Cancel print?",
+                text: "Cancel the current print? This can't be undone.",
+                confirmText: "Cancel print",
+                dismissText: "Keep printing",
+                destructive: true,
+                confirm: () => helpers.pressButton(this._hass, cancel),
+              }),
           })
         : nothing,
       estop
@@ -493,11 +526,14 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
             title: "Emergency stop",
             danger: true,
             onClick: () =>
-              this._requestConfirm(
-                "Trigger an EMERGENCY STOP? The printer will halt immediately and require a restart.",
-                () => helpers.pressButton(this._hass, estop),
-                true
-              ),
+              helpers.showConfirmationDialog(this, {
+                title: "Emergency stop?",
+                text: "Trigger an EMERGENCY STOP? The printer will halt immediately and require a restart.",
+                confirmText: "Emergency stop",
+                dismissText: "Cancel",
+                destructive: true,
+                confirm: () => helpers.pressButton(this._hass, estop),
+              }),
           })
         : nothing,
     ];
@@ -656,26 +692,6 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
             : nothing
         }
       </div>
-    `;
-  }
-
-  private _requestConfirm(body: string, run: () => void, destructive = false) {
-    this._confirm = { body, run, destructive };
-  }
-
-  private _renderConfirmDialog() {
-    const confirm = this._confirm!;
-    const close = () => (this._confirm = null);
-    const run = () => {
-      confirm.run();
-      this._confirm = null;
-    };
-    return html`
-      <ha-dialog open heading="Please confirm" @closed=${close}>
-        <div class="content">${confirm.body}</div>
-        <mwc-button slot="secondaryAction" @click=${close}>Cancel</mwc-button>
-        <mwc-button slot="primaryAction" @click=${run}>Confirm</mwc-button>
-      </ha-dialog>
     `;
   }
 }
