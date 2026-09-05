@@ -325,34 +325,78 @@ export interface ConfirmationDialogParams {
   cancel?: () => void;
 }
 
+let _activeConfirmationDialog: HTMLElement | null = null;
+
 /**
- * Opens Home Assistant's own built-in confirmation dialog (the same "dialog-box" element HA's
- * own UI uses for things like delete confirmations), via the `show-dialog` event its dialog
- * manager listens for at the top of the document.
+ * Opens a confirmation dialog built from `<ha-dialog>`/`<mwc-button>` (the same Material web
+ * components Home Assistant's own dialogs are built from - guaranteed to already be registered,
+ * since HA's frontend uses them constantly) appended directly to `document.body`, instead of
+ * rendered inside this card's own shadow DOM tree.
  *
- * This is deliberately NOT a hand-rolled `<ha-dialog>` rendered inside this card's own shadow
- * DOM. This card's `:host` sets `container-type` (for its CSS container-query breakpoints),
- * which - like a CSS `transform` - makes the host establish a new containing block for any
- * `position: fixed` descendant. A dialog nested inside it would end up confined to the card's
- * own small on-screen box instead of covering the viewport, which can leave its buttons
- * clipped/unreachable even though the dialog's text is visible. Going through HA's own dialog
- * manager renders the dialog at the document root, entirely outside our card, so it isn't
- * affected by any containment our card sets up.
+ * Why not just put `<ha-dialog>` in the card's own `render()` output (which is how this used to
+ * work, and how a first attempt at fixing it briefly worked around it)? This card's `:host` sets
+ * `container-type` (for its CSS container-query breakpoints), and that - like a CSS `transform`
+ * - makes the host establish a new containing block for any `position: fixed` descendant. Any
+ * dialog nested inside the card's shadow DOM ends up confined to the card's own small on-screen
+ * box instead of covering the viewport, leaving its buttons clipped/unreachable even though the
+ * dialog's text is visible. A prior fix routed this through HA's internal "dialog-box" element
+ * via a `show-dialog` event instead, which sidesteps the containment problem but depends on that
+ * specific internal component name/shape and on it already being loaded - fragile, and in
+ * practice the dialog stopped opening at all. Building the dialog ourselves and appending it
+ * straight to `document.body` avoids both problems: it's nowhere near this card's containment
+ * scope, and it only depends on `<ha-dialog>`/`<mwc-button>` existing, which they always do.
  */
-export function showConfirmationDialog(target: HTMLElement, params: ConfirmationDialogParams) {
-  fireEvent(target, "show-dialog", {
-    dialogTag: "dialog-box",
-    dialogImport: () => customElements.whenDefined("dialog-box"),
-    dialogParams: {
-      title: params.title,
-      text: params.text,
-      confirmText: params.confirmText ?? "Confirm",
-      dismissText: params.dismissText ?? "Cancel",
-      destructive: params.destructive,
-      confirm: params.confirm,
-      cancel: params.cancel,
-    },
+export function showConfirmationDialog(_target: HTMLElement, params: ConfirmationDialogParams) {
+  // Only one confirmation at a time - replace anything already open rather than stacking.
+  if (_activeConfirmationDialog?.parentNode) {
+    _activeConfirmationDialog.parentNode.removeChild(_activeConfirmationDialog);
+  }
+
+  const dialog = document.createElement("ha-dialog") as any;
+  dialog.heading = params.title ?? "Please confirm";
+
+  const content = document.createElement("div");
+  content.style.padding = "8px 4px";
+  content.textContent = params.text;
+  dialog.appendChild(content);
+
+  const cancelBtn = document.createElement("mwc-button");
+  cancelBtn.setAttribute("slot", "secondaryAction");
+  cancelBtn.textContent = params.dismissText ?? "Cancel";
+
+  const confirmBtn = document.createElement("mwc-button") as HTMLElement;
+  confirmBtn.setAttribute("slot", "primaryAction");
+  confirmBtn.textContent = params.confirmText ?? "Confirm";
+  if (params.destructive) {
+    confirmBtn.style.setProperty("--mdc-theme-primary", "var(--error-color, #db4437)");
+  }
+
+  const close = () => {
+    dialog.open = false;
+  };
+  const onClosed = () => {
+    dialog.removeEventListener("closed", onClosed);
+    dialog.remove();
+    if (_activeConfirmationDialog === dialog) {
+      _activeConfirmationDialog = null;
+    }
+  };
+  confirmBtn.addEventListener("click", () => {
+    params.confirm();
+    close();
   });
+  cancelBtn.addEventListener("click", () => {
+    params.cancel?.();
+    close();
+  });
+  dialog.addEventListener("closed", onClosed);
+
+  dialog.appendChild(cancelBtn);
+  dialog.appendChild(confirmBtn);
+
+  document.body.appendChild(dialog);
+  _activeConfirmationDialog = dialog;
+  dialog.open = true;
 }
 
 export function pressButton(hass: any, entity?: RegistryEntity) {

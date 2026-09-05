@@ -17,19 +17,18 @@ rather than the cloud.
 ## What it shows
 
 - Live camera feed **or** the current print's thumbnail on the left, with a view-toggle icon
-  (top-left) and an expand-to-more-info icon (bottom-right); a progress bar, filename, layer
-  count and time remaining overlay on top while a print is active.
+  (top-left) and an expand-to-more-info icon (bottom-right); the filename and a progress bar
+  overlay on top while a print is active.
 - A compact stat sidebar next to the camera: bed, cavity, and all four tool (E0-E3) temperatures
-  at a glance, each with its target temperature and (for tools) a filament-present indicator -
-  tap any cell to open its full history.
+  at a glance, each with its target temperature and (for tools) a filament-present indicator
+  (green = loaded, red = out) - tap any cell to open its full history, or hover for the full
+  reading.
 - The current print state (e.g. "Printing", "Offline") as a plain status line below the
-  camera/stats row.
+  camera/stats row, with the layer count, percent complete, and time remaining alongside it
+  while a print is active.
 - A row of square icon buttons for Cavity light, Power plug, Pause/Resume, Cancel, and Emergency
   Stop, with a confirmation dialog before anything destructive.
-- Speed override and cavity fan sliders.
-- A collapsible **Advanced** section: toolhead position, per-axis homing (X/Y/Z), ETA/elapsed,
-  ~~lifetime~~ total print time/filament/jobs, ~~queue~~ print queue, and system load - all
-  folded away until you want them.
+- A fixed-speed dropdown (50/80/100/120/150%) and a cavity fan slider.
 
 ## Requirements
 
@@ -69,19 +68,17 @@ show_camera: true
 default_view: auto # auto | webcam | thumbnail
 ```
 
-All other options (camera/light/power overrides, advanced section default) are best set through
-the visual editor - open the card's settings and everything is there via dropdowns and entity
-pickers.
+All other options (camera/light/power overrides) are best set through the visual editor - open
+the card's settings and everything is there via dropdowns and entity pickers.
 
-| Option                  | Type                              | Default         | Description                                                                                      |
-| ----------------------- | --------------------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
-| `printer`               | device                            | _(required)_    | The Moonraker device for your U1.                                                                |
-| `show_camera`           | boolean                           | `true`          | Show the camera/thumbnail panel.                                                                 |
-| `default_view`          | `auto` \| `webcam` \| `thumbnail` | `auto`          | `auto` shows the webcam while printing/paused and the thumbnail otherwise, with a manual toggle. |
-| `camera_entity`         | entity (camera)                   | _auto-detected_ | Override the webcam entity.                                                                      |
-| `light_entity`          | entity (light)                    | _auto-detected_ | Override the cavity light entity.                                                                |
-| `power_entity`          | entity (switch)                   | _(none)_        | A smart-plug switch to show/toggle as an icon button.                                            |
-| `show_advanced_default` | boolean                           | `false`         | Expand the Advanced section by default.                                                          |
+| Option          | Type                              | Default         | Description                                                                                      |
+| --------------- | --------------------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
+| `printer`       | device                            | _(required)_    | The Moonraker device for your U1.                                                                |
+| `show_camera`   | boolean                           | `true`          | Show the camera/thumbnail panel.                                                                 |
+| `default_view`  | `auto` \| `webcam` \| `thumbnail` | `auto`          | `auto` shows the webcam while printing/paused and the thumbnail otherwise, with a manual toggle. |
+| `camera_entity` | entity (camera)                   | _auto-detected_ | Override the webcam entity.                                                                      |
+| `light_entity`  | entity (light)                    | _auto-detected_ | Override the cavity light entity.                                                                |
+| `power_entity`  | entity (switch)                   | _(none)_        | A smart-plug switch to show/toggle as an icon button.                                            |
 
 ### Card size
 
@@ -90,9 +87,8 @@ a short, wide layout with the camera alongside the stats and controls. It isn't 
 dragging (that's intentional, so the card can't end up rendered larger or smaller than its
 layout is designed for), but it still adapts internally to whatever pixel size that 12x5 ends up
 being on a given screen - the tile grid, camera placement, and text sizing all reflow rather
-than just clipping. If the content is ever taller than the available space (e.g. the Advanced
-section expanded on a very narrow dashboard), it scrolls within the card rather than spilling
-outside it.
+than just clipping. If the content is ever taller than the available space (e.g. on a very
+narrow dashboard), it scrolls within the card rather than spilling outside it.
 
 ## How entity auto-discovery works
 
@@ -135,7 +131,10 @@ The card is TypeScript + [Lit](https://lit.dev), bundled with Rollup - the same 
 
 A number of entities are already auto-discovered but not yet surfaced in the UI - per-tool fan
 speed/RPM/power (`tool{n}_fan`, `tool{n}_fan_speed`, `tool{n}_fan_rpm`, `tool{n}_nozzle_fan`,
-`tool{n}_power`), `bed_power`, `cavity_fan`/`cavity_fan_rpm`. See `buildRoleCandidates()` in
+`tool{n}_power`), `bed_power`, `cavity_fan`/`cavity_fan_rpm`, toolhead X/Y/Z position, per-axis
+homing, ETA/elapsed time, lifetime print time/filament/jobs, print queue, tool hub power, and
+MCU/system load (these last ones used to live in a collapsible "Advanced" section that's since
+been removed, but the resolver still finds them - see `buildRoleCandidates()`). See
 `src/utils/helpers.ts` for the full role table and `print-status-card.ts` for how resolved roles
 turn into UI - PRs that put more of this to use are very welcome.
 

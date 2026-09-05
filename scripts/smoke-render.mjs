@@ -85,8 +85,6 @@ async function main() {
     type: "custom:snapmaker-u1-print-status-card",
     printer: deviceId,
     show_camera: true,
-    // Force the advanced section open too, since it renders another array of rows.
-    show_advanced_default: true,
   });
   el.hass = hass;
 
@@ -140,38 +138,64 @@ async function main() {
   if (shadow.innerHTML.toLowerCase().includes("home all axes")) {
     throw new Error("The removed 'Home all axes' control is still being rendered.");
   }
+  if (shadow.querySelector(".advanced-toggle") || shadow.querySelector(".advanced")) {
+    throw new Error("The removed 'Show advanced details' section is still being rendered.");
+  }
 
-  // The emergency-stop/cancel confirmations go through Home Assistant's own dialog manager
-  // (a "show-dialog" event caught at the document root) instead of a hand-rolled <ha-dialog>
-  // nested inside this card. A homegrown dialog would sit inside the card's own container-query
-  // containment box and could end up visually confined to the card's small on-screen size,
-  // leaving its buttons unreachable - see CHANGELOG. Confirm the event actually fires and
-  // carries a working confirm callback, rather than just trusting the source.
+  // Emergency stop/cancel build their own <ha-dialog> confirmation and append it straight to
+  // document.body, deliberately OUTSIDE the card's own shadow DOM - a dialog left inside the
+  // card can get confined to the card's own small on-screen box by the same CSS container-query
+  // containment that gives the card its responsive layout (see CHANGELOG). Confirm: (1) clicking
+  // Emergency Stop appends a dialog to document.body and NOT inside the card's shadow root, and
+  // (2) clicking that dialog's Confirm button actually calls the emergency-stop service, not
+  // just that some dialog appeared.
   const estopButton = Array.from(shadow.querySelectorAll(".controls .icon-btn")).find((btn) =>
     (btn.getAttribute("title") || "").toLowerCase().includes("emergency stop")
   );
   if (!estopButton) {
     throw new Error("Emergency stop button not found in the toolbar.");
   }
-  let dialogEvent;
-  el.addEventListener("show-dialog", (ev) => {
-    dialogEvent = ev;
-  });
+  let calledService = null;
+  hass.callService = async (domain, service, data) => {
+    calledService = { domain, service, data };
+  };
   estopButton.click();
-  if (!dialogEvent || dialogEvent.detail?.dialogTag !== "dialog-box") {
+
+  const dialog = document.body.querySelector("ha-dialog");
+  if (!dialog) {
     throw new Error(
-      "Clicking Emergency stop didn't dispatch a 'show-dialog' event for HA's own confirmation dialog."
+      "Clicking Emergency stop didn't append a confirmation <ha-dialog> to document.body."
     );
   }
-  if (typeof dialogEvent.detail?.dialogParams?.confirm !== "function") {
-    throw new Error("Emergency stop's show-dialog event is missing a working confirm callback.");
-  }
-  if (!shadow.querySelector("ha-dialog")) {
-    // Expected to be absent: the card no longer renders its own dialog element.
-  } else {
+  if (shadow.querySelector("ha-dialog")) {
     throw new Error(
-      "The card is still rendering its own <ha-dialog> - confirmations should go through HA's dialog manager instead."
+      "The confirmation dialog was appended inside the card's own shadow DOM instead of " +
+        "document.body - the card's own CSS containment can confine it there and make its " +
+        "buttons unreachable (see CHANGELOG)."
     );
+  }
+  const confirmBtn = dialog.querySelector('mwc-button[slot="primaryAction"]');
+  if (!confirmBtn) {
+    throw new Error("Confirmation dialog has no primary (Confirm) action button.");
+  }
+  confirmBtn.click();
+  if (!calledService || calledService.domain !== "button" || calledService.service !== "press") {
+    throw new Error(
+      "Clicking the confirmation dialog's Confirm button didn't call the emergency-stop service."
+    );
+  }
+  dialog.remove();
+
+  // Print speed is now a fixed dropdown (50/80/100/120/150%), not a free slider.
+  const speedSelect = shadow.querySelector(".speed-select");
+  if (!speedSelect) {
+    throw new Error("Print speed dropdown (.speed-select) not found.");
+  }
+  const speedOptions = Array.from(speedSelect.querySelectorAll("option")).map((o) => o.value);
+  for (const preset of ["50", "80", "100", "120", "150"]) {
+    if (!speedOptions.includes(preset)) {
+      throw new Error(`Print speed dropdown is missing the ${preset}% preset.`);
+    }
   }
 
   console.log(`Smoke test passed: rendered ${shadow.innerHTML.length} chars with no errors.`);

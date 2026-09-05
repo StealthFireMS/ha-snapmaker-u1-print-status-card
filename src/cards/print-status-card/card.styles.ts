@@ -363,46 +363,16 @@ export default css`
     color: var(--primary-text-color);
     font-weight: 600;
   }
-
-  /* ---- advanced section ------------------------------------------------------------------ */
-
-  .advanced-toggle {
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    font-size: 0.76rem;
-    color: var(--secondary-text-color);
+  .speed-select {
+    margin-left: auto;
+    background: var(--secondary-background-color, #333);
+    color: var(--primary-text-color);
+    border: none;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font: inherit;
+    font-weight: 600;
     cursor: pointer;
-    padding: 2px 0;
-  }
-  .advanced-toggle ha-icon {
-    --mdc-icon-size: 16px;
-  }
-
-  .advanced {
-    flex: 0 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    border-top: 1px solid var(--divider-color);
-    padding-top: 6px;
-  }
-  .advanced .row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.8rem;
-  }
-  .advanced .row span:first-child {
-    color: var(--secondary-text-color);
-  }
-  .advanced .axis-buttons {
-    display: flex;
-    gap: 6px;
-    justify-content: center;
   }
 
   .message-row {

@@ -43,11 +43,6 @@ const SCHEMA = [
     label: "Smart-plug / power switch (optional)",
     selector: { entity: { domain: "switch" } },
   },
-  {
-    name: "show_advanced_default",
-    label: "Expand advanced details by default",
-    selector: { boolean: {} },
-  },
 ];
 
 @customElement(PRINT_STATUS_CARD_EDITOR_NAME)

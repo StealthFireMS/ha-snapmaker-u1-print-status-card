@@ -37,7 +37,6 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
 
   @state() private _entities: RoleMap = {};
   @state() private _manualView: MediaView | null = null;
-  @state() private _advancedExpanded = false;
 
   public static async getConfigElement() {
     await import("./print-status-card-editor");
@@ -113,7 +112,6 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
       if (!raw) return;
       const saved = JSON.parse(raw);
       this._manualView = saved.manualView ?? null;
-      this._advancedExpanded = !!saved.advancedExpanded;
     } catch {
       // ignore corrupt storage
     }
@@ -121,10 +119,7 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
 
   private _savePersistedState() {
     try {
-      localStorage.setItem(
-        this._storageKey,
-        JSON.stringify({ manualView: this._manualView, advancedExpanded: this._advancedExpanded })
-      );
+      localStorage.setItem(this._storageKey, JSON.stringify({ manualView: this._manualView }));
     } catch {
       // storage may be unavailable (private browsing etc) - non-fatal
     }
@@ -192,7 +187,6 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
           ${showMedia ? this._renderMedia() : nothing} ${this._renderStatsSidebar()}
         </div>
         ${this._renderStatusLine()} ${this._renderControls()} ${this._renderSliders()}
-        ${this._renderAdvancedToggle()} ${this._advancedExpanded ? this._renderAdvanced() : nothing}
       </ha-card>
     `;
   }
@@ -545,12 +539,47 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     const speedFactor = this._e("speed_factor");
     const cavityFanSpeed = this._e("cavity_fan_speed");
     return html`
-      ${speedFactor ? this._renderSlider("mdi:speedometer", "Speed", speedFactor, 25, 200) : nothing}
+      ${speedFactor ? this._renderSpeedPreset(speedFactor) : nothing}
       ${
         cavityFanSpeed
           ? this._renderSlider("mdi:fan", "Cavity fan", cavityFanSpeed, 0, 100)
           : nothing
       }
+    `;
+  }
+
+  // Fixed speed presets rather than a free slider - a dropdown of the speeds that actually
+  // matter (50/80/100/120/150%) is quicker to hit precisely than dragging a slider to a round
+  // number. If the printer is currently at some other value (set from elsewhere, e.g. its own
+  // touchscreen), that value is added to the list too so the dropdown always reflects reality
+  // instead of silently showing the nearest preset.
+  private static readonly SPEED_PRESETS = [50, 80, 100, 120, 150];
+
+  private _renderSpeedPreset(entity: RegistryEntity) {
+    const value = Math.round(helpers.getNumericState(this._hass, entity) ?? 100);
+    const options = SnapmakerU1PrintStatusCard.SPEED_PRESETS.includes(value)
+      ? SnapmakerU1PrintStatusCard.SPEED_PRESETS
+      : [...SnapmakerU1PrintStatusCard.SPEED_PRESETS, value].sort((a, b) => a - b);
+
+    return html`
+      <div class="speed-row">
+        <ha-icon icon="mdi:speedometer"></ha-icon>
+        <span>Speed</span>
+        <select
+          class="speed-select"
+          title="Print speed"
+          @change=${(ev: Event) =>
+            helpers.setNumberValue(
+              this._hass,
+              entity,
+              Number((ev.target as HTMLSelectElement).value)
+            )}
+        >
+          ${options.map(
+            (opt) => html`<option value=${opt} ?selected=${opt === value}>${opt}%</option>`
+          )}
+        </select>
+      </div>
     `;
   }
 
@@ -580,117 +609,6 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
             )}
         />
         <span class="speed-value">${Math.round(value)}%</span>
-      </div>
-    `;
-  }
-
-  private _renderAdvancedToggle() {
-    return html`
-      <div
-        class="advanced-toggle"
-        @click=${() => {
-          this._advancedExpanded = !this._advancedExpanded;
-          this._savePersistedState();
-        }}
-      >
-        <ha-icon icon=${this._advancedExpanded ? "mdi:chevron-up" : "mdi:chevron-down"}></ha-icon>
-        ${this._advancedExpanded ? "Hide" : "Show"} advanced details
-      </div>
-    `;
-  }
-
-  private _renderAdvanced() {
-    const x = helpers.getNumericState(this._hass, this._e("toolhead_x"));
-    const y = helpers.getNumericState(this._hass, this._e("toolhead_y"));
-    const z = helpers.getNumericState(this._hass, this._e("toolhead_z"));
-    const duration = helpers.formatDuration(this._hass, this._e("print_duration"));
-    const eta = helpers.formatEta(this._hass, this._e("print_eta"));
-    const totalPrintTime = helpers.getState(this._hass, this._e("total_print_time"));
-    const totalFilament = helpers.getState(this._hass, this._e("total_filament_used"));
-    const totalJobs = helpers.getState(this._hass, this._e("total_jobs"));
-    const mcuLoad = helpers.getNumericState(this._hass, this._e("mcu_load"));
-    const systemLoad = helpers.getNumericState(this._hass, this._e("system_load"));
-    const objectHeight = helpers.getNumericState(this._hass, this._e("object_height"));
-    const filamentUsed = helpers.getNumericState(this._hass, this._e("filament_used"));
-    const printSpeed = helpers.getNumericState(this._hass, this._e("print_speed"));
-    const queueState = helpers.getState(this._hass, this._e("queue_state"));
-    const jobsInQueue = helpers.getNumericState(this._hass, this._e("jobs_in_queue"));
-    const longestPrint = helpers.getState(this._hass, this._e("longest_print"));
-    const headHub = this._e("head_hub_switch");
-    const homeX = this._e("home_x_axis");
-    const homeY = this._e("home_y_axis");
-    const homeZ = this._e("home_z_axis");
-
-    const rows: any[] = [];
-    if (this._isActive()) {
-      rows.push(["Elapsed", duration]);
-      rows.push(["ETA", eta]);
-      if (printSpeed !== undefined) rows.push(["Print speed", `${Math.round(printSpeed)} mm/s`]);
-      if (objectHeight) rows.push(["Object height", `${objectHeight.toFixed(1)} mm`]);
-      if (filamentUsed) rows.push(["Filament used (this print)", `${Math.round(filamentUsed)} mm`]);
-    }
-    if (x !== undefined) {
-      rows.push([
-        "Toolhead position",
-        `X ${x.toFixed(1)}  Y ${(y ?? 0).toFixed(1)}  Z ${(z ?? 0).toFixed(1)}`,
-      ]);
-    }
-    if (queueState && jobsInQueue !== undefined && jobsInQueue > 0) {
-      rows.push(["Print queue", `${jobsInQueue} queued (${queueState})`]);
-    }
-    if (totalPrintTime) rows.push(["Lifetime print time", totalPrintTime]);
-    if (totalFilament) rows.push(["Lifetime filament used", totalFilament]);
-    if (totalJobs) rows.push(["Lifetime jobs", totalJobs]);
-    if (longestPrint) rows.push(["Longest print", longestPrint]);
-    if (mcuLoad !== undefined) rows.push(["MCU load", helpers.formatPercent(mcuLoad, true)]);
-    if (systemLoad !== undefined)
-      rows.push(["System load", helpers.formatPercent(systemLoad, true)]);
-
-    return html`
-      <div class="advanced">
-        ${rows.map(([label, value]) => html`<div class="row"><span>${label}</span><span>${value}</span></div>`)}
-        ${
-          headHub
-            ? html`
-                <div class="row">
-                  <span>Tool hub power</span>
-                  <ha-switch
-                    .checked=${helpers.getState(this._hass, headHub) === "on"}
-                    @change=${() => helpers.toggleDomain(this._hass, "switch", headHub)}
-                  ></ha-switch>
-                </div>
-              `
-            : nothing
-        }
-        ${
-          homeX || homeY || homeZ
-            ? html`
-                <div class="axis-buttons">
-                  ${
-                    homeX
-                      ? html`<ha-button @click=${() => helpers.pressButton(this._hass, homeX)}
-                          >Home X</ha-button
-                        >`
-                      : nothing
-                  }
-                  ${
-                    homeY
-                      ? html`<ha-button @click=${() => helpers.pressButton(this._hass, homeY)}
-                          >Home Y</ha-button
-                        >`
-                      : nothing
-                  }
-                  ${
-                    homeZ
-                      ? html`<ha-button @click=${() => helpers.pressButton(this._hass, homeZ)}
-                          >Home Z</ha-button
-                        >`
-                      : nothing
-                  }
-                </div>
-              `
-            : nothing
-        }
       </div>
     `;
   }

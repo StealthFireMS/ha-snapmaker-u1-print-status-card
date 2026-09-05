@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.1.6
+
+### Fixed
+
+- **Emergency Stop (and Cancel print) stopped working again** after the 0.1.5 fix. That fix
+  routed the confirmation through Home Assistant's own internal "dialog-box" element via a
+  `show-dialog` event, which sidesteps the CSS containment problem that broke it in the first
+  place, but depends on that specific internal component already being loaded and its dialog
+  manager picking up the event - in practice the dialog stopped opening at all. Replaced it with
+  a confirmation dialog this card builds itself (from the same `<ha-dialog>`/`<mwc-button>`
+  elements Home Assistant's own dialogs use) and appends directly to `document.body`, entirely
+  outside the card's own DOM tree - it no longer depends on any internal HA dialog machinery, and
+  it's nowhere near the card's own CSS containment that caused the original problem.
+
+### Changed
+
+- **Print speed is now a dropdown with fixed presets (50%/80%/100%/120%/150%)** instead of a
+  free-dragging slider, so it's quick to hit an exact speed instead of fussing with a slider. If
+  the printer is currently running some other speed (set from its own touchscreen, say), that
+  value is added to the list too so the dropdown always reflects what's actually happening.
+- **Removed the "Show advanced details" section** (toolhead position, per-axis homing, ETA,
+  lifetime print stats, print queue, system load) - no longer needed. The underlying entities are
+  still auto-discovered if anyone wants to build on them again later (see the README's
+  "Extending it" section).
+
 ## 0.1.5
 
 ### Fixed
