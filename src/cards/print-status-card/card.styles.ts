@@ -4,35 +4,57 @@ export default css`
   :host {
     --u1-accent: var(--primary-color);
     --u1-tile-bg: var(--ha-card-background, var(--card-background-color, #fff));
-    /* Lets the card react to its own rendered width (see @container rules below) instead of
-       only ever laying out for one fixed size - the same box needs to look right whether the
-       user has it at its default 12x5 grid size, dragged narrower/shorter, or wider/taller. */
+    /* Lets the card react to its own rendered width (see @container rules below). The card's
+       size itself is locked to 12x5 via getGridOptions()/getLayoutOptions() - this is purely
+       about the internal layout adapting to whatever pixel size that 12x5 actually renders at
+       (a phone vs. a wide desktop dashboard aren't the same number of pixels). */
     container-type: inline-size;
     container-name: u1-card;
     display: block;
+    /* Fill exactly the height the dashboard grid gives a 12x5 card. Without this the card
+       falls back to its content's natural height, which is taller than a locked 5-row box and
+       visually spills out past it instead of staying inside the size the user set. Percentage
+       heights are a no-op (resolve to auto) anywhere that doesn't hand down an explicit height,
+       so this is a no-op outside the sections/grid view. */
+    height: 100%;
   }
 
   ha-card {
-    padding: 16px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     height: 100%;
     box-sizing: border-box;
+    /* Hard stop: whatever doesn't fit in the locked box gets clipped/scrolled (see .info)
+       rather than drawn outside the card's own border, however tall the content wants to be. */
+    overflow: hidden;
+  }
+
+  .header {
+    flex: 0 0 auto;
   }
 
   .body {
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     min-width: 0;
+    overflow: hidden;
   }
 
   .info {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    min-width: 0;
+    gap: 8px;
+    /* If the tiles/controls/advanced content is still taller than the space left after the
+       header and media, scroll it internally instead of pushing the card taller than 5 rows. */
+    overflow-y: auto;
   }
 
   /* Wide card (roomy sections-view sizing, e.g. the default 12-column width): put the camera
@@ -41,15 +63,18 @@ export default css`
   @container u1-card (min-width: 480px) {
     .body:not(.no-media) {
       flex-direction: row;
-      align-items: flex-start;
+      align-items: stretch;
     }
     .body:not(.no-media) .media {
-      /* flex-basis (via the flex shorthand) wins over width on the main axis here, so this
-         intentionally overrides the 100%-wide stacked-layout default above. */
-      flex: 0 0 38%;
+      /* Size the camera panel off the *height* it's actually given (which is already capped
+         by the locked card height) rather than off a share of the width - driving it from
+         width was what let a wide-but-short 12x5 card push the media panel taller than the
+         card itself. */
+      flex: 0 0 auto;
       width: auto;
-      max-width: 280px;
-      aspect-ratio: 1 / 1;
+      height: 100%;
+      max-width: 40%;
+      aspect-ratio: 4 / 3;
     }
     .body:not(.no-media) .info {
       flex: 1 1 auto;
@@ -67,8 +92,9 @@ export default css`
     }
   }
 
-  /* Narrow card (dragged smaller than the default, or a small dashboard column): tighten up
-     the tile grid and controls so nothing gets too cramped to read or tap. */
+  /* Narrow card (a small dashboard column, or a phone-width dashboard where even a "full
+     width" 12-column card renders narrow): tighten up the tile grid and controls so nothing
+     gets too cramped to read or tap. */
   @container u1-card (max-width: 320px) {
     .tiles {
       grid-template-columns: repeat(2, 1fr);

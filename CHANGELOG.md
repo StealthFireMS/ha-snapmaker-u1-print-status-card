@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.3
+
+### Fixed
+
+- **Card size wasn't actually respected** - the 12x5 default from 0.1.2 was only a starting
+  suggestion, and the card's real content could render taller than the box the dashboard gave
+  it, spilling visually past its own edges instead of staying inside them. Fixed by locking the
+  size outright (`min_columns`/`max_columns` and `min_rows`/`max_rows` all equal `12`/`5` in
+  `getGridOptions()`/`getLayoutOptions()`, so the resize handles can't move it), having the card
+  actually fill the height that size hands it (`height: 100%` from the host down through
+  `ha-card`) instead of sizing itself off its own content, and clipping/scrolling anything that's
+  still too tall to fit rather than letting it draw outside the card.
+- Reworked the wide (side-by-side) layout so the camera panel's size comes from the *height* it's
+  given rather than a share of the width - sizing it off width is what let a short-but-wide 12x5
+  card push the camera taller than the card itself on wide screens.
+
+### Removed
+
+- The single "Home all axes" button in the main controls row. The individual Home X / Home Y /
+  Home Z buttons in the Advanced section are unaffected.
+
 ## 0.1.2
 
 ### Changed

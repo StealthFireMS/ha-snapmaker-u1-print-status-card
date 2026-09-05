@@ -61,14 +61,16 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
   // Current API (HA sections/grid view). 12 columns x 5 rows is the primary/default size -
   // roughly a landscape card wide enough for the camera and stat tiles to sit side by side.
   // Still resizable by the user within the min/max bounds below.
+  // min === max on both axes locks the card at exactly 12x5 - the dashboard editor's resize
+  // handles won't be able to drag it to any other size.
   public getGridOptions() {
     return {
       columns: 12,
       rows: 5,
-      min_columns: 6,
+      min_columns: 12,
       max_columns: 12,
-      min_rows: 3,
-      max_rows: 10,
+      min_rows: 5,
+      max_rows: 5,
     };
   }
 
@@ -77,10 +79,10 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     return {
       grid_columns: 12,
       grid_rows: 5,
-      grid_min_columns: 6,
+      grid_min_columns: 12,
       grid_max_columns: 12,
-      grid_min_rows: 3,
-      grid_max_rows: 10,
+      grid_min_rows: 5,
+      grid_max_rows: 5,
     };
   }
 
@@ -428,7 +430,6 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     const resume = this._e("resume_print");
     const cancel = this._e("cancel_print");
     const estop = this._e("emergency_stop");
-    const homeAll = this._e("home_all_axes");
     const speedFactor = this._e("speed_factor");
     const cavityFanSpeed = this._e("cavity_fan_speed");
 
@@ -469,19 +470,6 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
                   <ha-icon slot="icon" icon="mdi:stop"></ha-icon>
                   Cancel
                 </ha-button>
-              `
-            : nothing
-        }
-        ${
-          homeAll
-            ? html`
-                <ha-icon-button
-                  class="icon-button"
-                  @click=${() => helpers.pressButton(this._hass, homeAll)}
-                  title="Home all axes"
-                >
-                  <ha-icon icon="mdi:home-import-outline"></ha-icon>
-                </ha-icon-button>
               `
             : nothing
         }

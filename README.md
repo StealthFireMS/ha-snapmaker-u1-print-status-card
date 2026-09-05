@@ -20,13 +20,13 @@ rather than the cloud.
   a progress bar, filename, layer count and time remaining overlaid on top.
 - Bed, cavity, and all four tool (E0-E3) temperatures at a glance, each with its target
   temperature and a filament-present indicator, tap any tile to open its full history.
-- Pause / Resume / Cancel / Emergency Stop / Home All Axes, with a confirmation dialog before
-  anything destructive.
+- Pause / Resume / Cancel / Emergency Stop, with a confirmation dialog before anything
+  destructive.
 - Speed override and cavity fan sliders.
 - Cavity light and (optionally) a smart-plug power switch in the header.
-- A collapsible **Advanced** section: toolhead position, ETA, ETA/elapsed, ~~lifetime~~ total
-  print time/filament/jobs, ~~queue~~ print queue, and system load - all folded away until you
-  want them.
+- A collapsible **Advanced** section: toolhead position, per-axis homing (X/Y/Z), ETA/elapsed,
+  ~~lifetime~~ total print time/filament/jobs, ~~queue~~ print queue, and system load - all
+  folded away until you want them.
 
 ## Requirements
 
@@ -83,11 +83,14 @@ entity pickers.
 
 ### Card size
 
-In the sections/grid dashboard view, the card starts at **12 columns wide x 5 rows tall** - a
-short, wide layout with the camera alongside the stats and controls. It's just the starting
-point: drag any edge in the dashboard editor to resize it down to as small as 6x3 or up to a
-full-width 12x10, and the card's own layout adapts to whatever size you leave it at (the tile
-grid and camera placement reflow rather than just clipping or leaving empty space).
+In the sections/grid dashboard view, the card is locked to **12 columns wide x 5 rows tall** -
+a short, wide layout with the camera alongside the stats and controls. It isn't resizable by
+dragging (that's intentional, so the card can't end up rendered larger or smaller than its
+layout is designed for), but it still adapts internally to whatever pixel size that 12x5 ends up
+being on a given screen - the tile grid, camera placement, and text sizing all reflow rather
+than just clipping. If the content is ever taller than the available space (e.g. the Advanced
+section expanded on a very narrow dashboard), it scrolls within the card rather than spilling
+outside it.
 
 ## How entity auto-discovery works
 

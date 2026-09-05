@@ -107,17 +107,19 @@ async function main() {
     throw new Error("Expected .body/.info wrapper elements (responsive layout) are missing.");
   }
 
+  // Locked to exactly 12x5 - min must equal max on both axes or the dashboard editor's resize
+  // handles can drag it to some other size.
   const expectedGridOptions = {
     columns: 12,
     rows: 5,
-    min_columns: 6,
+    min_columns: 12,
     max_columns: 12,
-    min_rows: 3,
-    max_rows: 10,
+    min_rows: 5,
+    max_rows: 5,
   };
   if (typeof el.getGridOptions !== "function") {
     throw new Error(
-      "getGridOptions() is missing - the card won't get its default 12x5 size in the sections view."
+      "getGridOptions() is missing - the card won't get its locked 12x5 size in the sections view."
     );
   }
   const gridOptions = el.getGridOptions();
@@ -127,6 +129,10 @@ async function main() {
         `getGridOptions().${key} was ${JSON.stringify(gridOptions[key])}, expected ${JSON.stringify(value)}.`
       );
     }
+  }
+
+  if (shadow.innerHTML.toLowerCase().includes("home all axes")) {
+    throw new Error("The removed 'Home all axes' control is still being rendered.");
   }
 
   console.log(`Smoke test passed: rendered ${shadow.innerHTML.length} chars with no errors.`);
