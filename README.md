@@ -11,8 +11,15 @@ for Bambu Lab printers, rebuilt around what the U1's Moonraker integration actua
 4-tool toolchanger (E0-E3), a heated cavity, and a live webcam feed from the firmware itself
 rather than the cloud.
 
-![status](https://img.shields.io/badge/status-community%20project-blue)
-![HA](https://img.shields.io/badge/home%20assistant-custom%20card-41BDF5)
+![hacs](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)
+![release](https://img.shields.io/github/v/release/StealthFireMS/ha-snapmaker-u1-print-status-card)
+![build](https://github.com/StealthFireMS/ha-snapmaker-u1-print-status-card/actions/workflows/build-check.yml/badge.svg)
+![license](https://img.shields.io/github/license/StealthFireMS/ha-snapmaker-u1-print-status-card)
+
+![The card showing an active print: a webcam-style preview on the left with a progress bar and
+filename, a 3x2 grid of bed/cavity/tool temperatures with filament-presence dots, a status line
+with layer/percent/time-remaining, a row of control buttons, a fixed print-speed dropdown, and a
+cavity fan slider.](src/images/card-preview.png)
 
 ## What it shows
 
@@ -121,10 +128,17 @@ A few consequences of that design:
 
 ```bash
 npm ci
-npm run build          # -> dist/snapmaker-u1-print-status-card.js
+npm run build:strict    # -> dist/snapmaker-u1-print-status-card.js (fails on TS errors)
 npm run verify          # resolver regression check against real-world fixture data
+npm run smoke           # mounts the built bundle in jsdom and exercises it end to end
 npm start               # rollup --watch with a local dev server on :4000
 ```
+
+CI (`.github/workflows/build-check.yml`) runs all three of `build:strict`, `verify`, and `smoke`
+on every push and PR; tagged GitHub releases trigger `.github/workflows/release.yml`, which bumps
+`package.json` to match the tag, rebuilds, re-runs `smoke`, and attaches the built
+`snapmaker-u1-print-status-card.js` to the release (this is the file HACS and the manual
+install steps above pull from).
 
 The card is TypeScript + [Lit](https://lit.dev), bundled with Rollup - the same stack as
 `ha-bambulab-cards`, trimmed down to one card.

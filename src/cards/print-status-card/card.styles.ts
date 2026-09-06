@@ -159,7 +159,14 @@ export default css`
 
   .stats-sidebar {
     flex: 0 0 38%;
-    max-width: 230px;
+    /* At the old 230px cap, a 3-column cell's usable width (after its own padding) came out to
+       ~66px - just barely too narrow for "Bed" + "→ 60°" together at the default font size, so
+       the Bed cell was truncating to "B..." / "→ ..." on every dashboard wide enough to hit this
+       cap (i.e. most of them), not just unusually narrow ones. 256px gives each cell a few more
+       pixels, which is enough for the common two-digit-temperature case while staying well
+       inside "compact sidebar" territory; the per-cell ellipsis handling above still catches
+       anything longer (a 3-digit target, a heavily customized label, etc).  */
+    max-width: 256px;
     min-width: 130px;
     display: grid;
     /* 3 columns (2 rows for up to 6 cells - bed, cavity, 4 tools) rather than 2 columns (3 rows):

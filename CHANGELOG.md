@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.8
+
+### Fixed
+
+- **The Bed stat cell was truncating to "B..." / "→ ..."** on most real dashboard widths, not
+  just unusually narrow ones. The stat sidebar's max width (230px) left each of its 3 columns
+  only ~66px of usable space after padding - just barely too tight for "Bed" plus its "→ 60°"
+  target badge at the default font size, so it hit the cell's own ellipsis handling (working as
+  designed, just triggered more often than intended). Bumped the sidebar's cap to 256px, which
+  comfortably fits the common two-digit-temperature case while keeping the sidebar's compact,
+  fixed-width feel; anything longer still degrades gracefully via the existing ellipsis/hover-title
+  handling.
+
 ## 0.1.7
 
 ### Added
