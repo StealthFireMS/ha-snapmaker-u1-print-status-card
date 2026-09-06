@@ -28,7 +28,13 @@ export type RoleMap = { [role: string]: RegistryEntity };
 interface RoleSpec {
   role: string;
   suffixes: string[];
-  /** Skip a candidate whose local part contains any of these substrings (cross-contamination guard). */
+  /**
+   * Skip a candidate whose local part contains any of these as a whole underscore-delimited
+   * segment (cross-contamination guard). Matching is segment-based rather than a bare substring
+   * test so a guard like "e1" excludes `..._e1_fan_speed` without also excluding an unrelated
+   * device whose own slug merely happens to contain those characters (`the1_fan_speed`,
+   * `zone1_fan_speed`, ...).
+   */
   exclude?: string[];
 }
 
@@ -40,6 +46,11 @@ function localPart(entityId: string): string {
 function matchesSuffix(entityId: string, suffix: string): boolean {
   const local = localPart(entityId);
   return local === suffix || local.endsWith(`_${suffix}`);
+}
+
+/** True when `segment` appears as a whole underscore-delimited segment of the entity's local part. */
+function hasSegment(entityId: string, segment: string): boolean {
+  return `_${localPart(entityId)}_`.includes(`_${segment}_`);
 }
 
 // moonraker-home-assistant exposes every raw Klipper gcode_macro as its own `button.*_macro_<name>`
@@ -78,7 +89,7 @@ export function resolveRoles(
 
   for (const { role, suffixes, exclude } of roleOrder) {
     const idx = pool.findIndex((id) => {
-      if (exclude?.some((x) => localPart(id).includes(x))) {
+      if (exclude?.some((x) => hasSegment(id, x))) {
         return false;
       }
       return suffixes.some((s) => matchesSuffix(id, s));
@@ -206,17 +217,6 @@ export function getNumericState(hass: any, entity?: RegistryEntity): number | un
   return Number.isNaN(n) ? undefined : n;
 }
 
-export function getAttribute(
-  hass: any,
-  entity: RegistryEntity | undefined,
-  attribute: string
-): any {
-  if (!entity?.entity_id) {
-    return undefined;
-  }
-  return hass.states[entity.entity_id]?.attributes?.[attribute];
-}
-
 /** Renders a raw seconds/minutes/hours/days duration value (using the entity's own unit) as e.g. "1h 42m". */
 export function formatDuration(hass: any, entity?: RegistryEntity): string {
   if (!entity?.entity_id) {
@@ -258,24 +258,6 @@ export function formatDuration(hass: any, entity?: RegistryEntity): string {
   return `${minutes}m`;
 }
 
-export function formatEta(hass: any, entity?: RegistryEntity): string {
-  if (!entity?.entity_id) {
-    return "--";
-  }
-  const state = hass.states[entity.entity_id];
-  if (!state || state.state === "unknown" || state.state === "unavailable") {
-    return "--";
-  }
-  const date = new Date(state.state);
-  if (Number.isNaN(date.getTime())) {
-    return String(state.state);
-  }
-  return date.toLocaleTimeString(hass.locale?.language ?? navigator.language, {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 export function formatTemp(hass: any, entity?: RegistryEntity): string {
   const value = getNumericState(hass, entity);
   if (value === undefined) {
@@ -284,12 +266,20 @@ export function formatTemp(hass: any, entity?: RegistryEntity): string {
   return `${Math.round(value)}°`;
 }
 
-export function formatPercent(value: number | undefined, fromRatio = false): string {
+/**
+ * Formats an already-percentage value (0-100) as e.g. "42%".
+ *
+ * Everything this card reads is a percentage entity, not a 0-1 ratio: moonraker-home-assistant's
+ * `progress` sensor multiplies Klipper's 0-1 progress by 100 itself and reports it with a
+ * PERCENTAGE unit, and the fan-speed/speed-factor numbers are likewise 0-100 (and 0-200 for the
+ * speed factor). There is deliberately no "this one is a ratio" flag here - an earlier version
+ * had one, and passing it for `progress` is what produced readings like "4200%".
+ */
+export function formatPercent(value: number | undefined): string {
   if (value === undefined) {
     return "--";
   }
-  const pct = fromRatio ? value * 100 : value;
-  return `${Math.round(pct)}%`;
+  return `${Math.round(value)}%`;
 }
 
 export function fireEvent(
@@ -346,11 +336,20 @@ let _activeConfirmationDialog: HTMLElement | null = null;
  * straight to `document.body` avoids both problems: it's nowhere near this card's containment
  * scope, and it only depends on `<ha-dialog>`/`<mwc-button>` existing, which they always do.
  */
-export function showConfirmationDialog(_target: HTMLElement, params: ConfirmationDialogParams) {
+/**
+ * Tears down any confirmation dialog this module currently has open. Because the dialog lives on
+ * `document.body` rather than inside the card, nothing removes it automatically when the card
+ * itself goes away (dashboard edit, view switch, HA reloading resources), so the card calls this
+ * from `disconnectedCallback()`.
+ */
+export function closeConfirmationDialog() {
+  _activeConfirmationDialog?.parentNode?.removeChild(_activeConfirmationDialog);
+  _activeConfirmationDialog = null;
+}
+
+export function showConfirmationDialog(params: ConfirmationDialogParams) {
   // Only one confirmation at a time - replace anything already open rather than stacking.
-  if (_activeConfirmationDialog?.parentNode) {
-    _activeConfirmationDialog.parentNode.removeChild(_activeConfirmationDialog);
-  }
+  closeConfirmationDialog();
 
   const dialog = document.createElement("ha-dialog") as any;
   dialog.heading = params.title ?? "Please confirm";
@@ -371,21 +370,31 @@ export function showConfirmationDialog(_target: HTMLElement, params: Confirmatio
     confirmBtn.style.setProperty("--mdc-theme-primary", "var(--error-color, #db4437)");
   }
 
+  // Tracks whether the user actually answered the dialog via one of its buttons. Dismissing it
+  // any other way (Escape, clicking the scrim) still fires "closed", and that counts as a cancel -
+  // without this, `params.cancel` was only ever called for the explicit Cancel button.
+  let settled = false;
   const close = () => {
     dialog.open = false;
   };
   const onClosed = () => {
     dialog.removeEventListener("closed", onClosed);
+    if (!settled) {
+      settled = true;
+      params.cancel?.();
+    }
     dialog.remove();
     if (_activeConfirmationDialog === dialog) {
       _activeConfirmationDialog = null;
     }
   };
   confirmBtn.addEventListener("click", () => {
+    settled = true;
     params.confirm();
     close();
   });
   cancelBtn.addEventListener("click", () => {
+    settled = true;
     params.cancel?.();
     close();
   });
@@ -446,15 +455,29 @@ export function getCameraImageUrl(hass: any, entity?: RegistryEntity): string {
  * `defaultPath` is appended only when the input has no real path of its own, so a bare
  * IP/hostname (with or without a trailing slash) gets it, but an address that already specifies
  * a path is left alone.
+ *
+ * Only http:// and https:// are accepted. Anything else carrying a scheme returns "" (which hides
+ * the button entirely) rather than being handed to `window.open` - the previous "any scheme
+ * followed by //" test also let `javascript://...` and `data://...` through, which is a
+ * script-execution vector for anything that can write a dashboard config. A leading `word:` that
+ * is followed by digits is a host:port, not a scheme (`printer.local:8080`), and still works.
  */
+const HTTP_SCHEME = /^https?:\/\//i;
+const SCHEME_WITH_AUTHORITY = /^[a-z][a-z0-9+.-]*:\/\//i;
+const SCHEME_WITH_OPAQUE_PATH = /^[a-z][a-z0-9+.-]*:(?![0-9])/i;
+
 export function normalizeUrl(raw: string, defaultPath = ""): string {
   const trimmed = raw.trim();
   if (!trimmed) {
     return "";
   }
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
-    // Already has a scheme (http://, https://, ...) - use as typed.
+  if (HTTP_SCHEME.test(trimmed)) {
+    // Already a full http(s) URL - use as typed.
     return trimmed;
+  }
+  if (SCHEME_WITH_AUTHORITY.test(trimmed) || SCHEME_WITH_OPAQUE_PATH.test(trimmed)) {
+    // Some other scheme (javascript:, data:, file:, ...) - refuse it.
+    return "";
   }
   const slashIndex = trimmed.indexOf("/");
   const hasRealPath = slashIndex !== -1 && slashIndex < trimmed.length - 1;

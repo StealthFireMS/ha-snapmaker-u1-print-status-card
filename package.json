@@ -1,8 +1,7 @@
 {
   "name": "ha-snapmaker-u1-print-status-card",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "A graphical print-status + control card for the Snapmaker U1 (Paxx Extended Firmware / Moonraker) in Home Assistant",
-  "main": "index.js",
   "scripts": {
     "start": "rollup -c --watch --bundleConfigAsCjs",
     "build": "cross-env IGNORE_TS_ERRORS=true rollup -c --bundleConfigAsCjs",

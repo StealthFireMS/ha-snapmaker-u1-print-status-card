@@ -191,6 +191,8 @@ export default css`
     grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
   }
 
+  /* A real <button> (so each cell is focusable and activatable from the keyboard - they open the
+     entity's more-info dialog), stripped back to look exactly like the plain cell it replaced. */
   .stat-cell {
     background: var(--u1-tile-bg);
     padding: 4px 5px;
@@ -201,9 +203,22 @@ export default css`
     cursor: pointer;
     position: relative;
     min-width: 0;
+    border: none;
+    margin: 0;
+    width: 100%;
+    box-sizing: border-box;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    -webkit-appearance: none;
+    appearance: none;
   }
   .stat-cell:hover {
     filter: brightness(0.97);
+  }
+  .stat-cell:focus-visible {
+    outline: 2px solid var(--u1-accent);
+    outline-offset: -2px;
   }
   .stat-top {
     display: flex;

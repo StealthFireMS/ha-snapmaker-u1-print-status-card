@@ -1,7 +1,12 @@
 name: Frontend Build Check
 
 on:
+  # Only the default branch on push - without this filter, a pull request from a branch in this
+  # same repo triggered two identical runs (one for the push, one for the PR).
   push:
+    branches:
+      - main
+      - master
   pull_request:
 
 jobs:

@@ -1,8 +1,9 @@
 import { customElement, state } from "lit/decorators.js";
 import { html, LitElement, nothing } from "lit";
+import type { PropertyValues } from "lit";
 import styles from "./card.styles";
 import { PRINT_STATUS_CARD_EDITOR_NAME, PRINT_STATUS_CARD_NAME } from "./const";
-import { INTEGRATION_DOMAIN, TOOL_COUNT } from "../../const";
+import { TOOL_COUNT } from "../../const";
 import { registerCustomCard } from "../../utils/custom-cards";
 import * as helpers from "../../utils/helpers";
 import type { RegistryEntity, RoleMap } from "../../utils/helpers";
@@ -14,6 +15,12 @@ registerCustomCard({
 });
 
 type MediaView = "webcam" | "thumbnail";
+
+interface PersistedState {
+  manualView: MediaView | null;
+  /** The `_isActive()` value the manual override was chosen under - see `_currentMediaView()`. */
+  manualActive: boolean | null;
+}
 
 function hash32(str: string): string {
   let h = 0x811c9dc5;
@@ -28,15 +35,23 @@ function hash32(str: string): string {
 export class SnapmakerU1PrintStatusCard extends LitElement {
   static styles = styles;
 
-  // Marked @state so every `hass` update (new temperatures, progress, etc.) re-renders the card.
+  // Marked @state so a `hass` update carrying new data for one of *this printer's* entities
+  // re-renders the card. Home Assistant hands every card a fresh `hass` object on every state
+  // change anywhere in the instance, so `shouldUpdate()` below filters those down to the ones
+  // that actually affect what this card draws.
   @state() private _hass: any;
   private _config: any = {};
   private _deviceId: string | undefined;
   private _storageKey = "";
   private _roleCandidates = helpers.buildRoleCandidates(TOOL_COUNT);
+  /** Last-seen state objects for the entities this card reads, keyed by entity_id. */
+  private _trackedStates: { [entityId: string]: any } = {};
 
   @state() private _entities: RoleMap = {};
   @state() private _manualView: MediaView | null = null;
+  @state() private _manualActive: boolean | null = null;
+  /** The media `src` that most recently failed to load, so a broken image falls back to the placeholder. */
+  @state() private _mediaErrorSrc: string | null = null;
 
   public static async getConfigElement() {
     await import("./print-status-card-editor");
@@ -76,10 +91,20 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     };
   }
 
+  // The masonry and panel dashboard views ignore getGridOptions()/getLayoutOptions() entirely and
+  // ask for getCardSize() instead. A card that doesn't implement it is assumed to be 1 row tall,
+  // which throws off masonry's column balancing - this card is the same 5 rows there as anywhere.
+  public getCardSize() {
+    return 5;
+  }
+
   setConfig(config: any) {
     this._config = { show_camera: true, default_view: "auto", ...config };
     this._deviceId = config.printer;
-    this._storageKey = `${PRINT_STATUS_CARD_NAME}-${hash32(JSON.stringify(config))}`;
+    // Keyed on the printer alone rather than a hash of the whole config: the persisted bit is
+    // "which media pane was I last looking at for this printer", and hashing every option meant
+    // toggling an unrelated setting silently threw that away.
+    this._storageKey = `${PRINT_STATUS_CARD_NAME}-${hash32(String(this._deviceId ?? ""))}`;
     this._loadPersistedState();
 
     if (this._hass && this._deviceId) {
@@ -88,15 +113,121 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
   }
 
   set hass(hass: any) {
-    const firstTime = hass && !this._hass;
+    const previous = this._hass;
     this._hass = hass;
-    if (firstTime && this._deviceId) {
+    if (!hass || !this._deviceId) {
+      return;
+    }
+    // Re-resolve whenever the entity registry itself changes, not just on the first `hass`.
+    // HA replaces `hass.entities` wholesale when entities are added, removed or renamed, so this
+    // covers the printer's entities arriving after the card (integration still starting up after
+    // a restart, printer offline at boot, integration reloaded) - previously those cases left the
+    // affected tiles missing until the browser was reloaded.
+    if (!previous || hass.entities !== previous.entities) {
       this._resolveEntities();
     }
   }
 
   get hass() {
     return this._hass;
+  }
+
+  /**
+   * Home Assistant sets `hass` on every card for every state change anywhere in the instance -
+   * on a busy install that's many updates a second, none of which need be about this printer.
+   * Re-render only when something this card actually draws has changed.
+   */
+  protected shouldUpdate(changed: PropertyValues): boolean {
+    if (!this.hasUpdated) {
+      this._syncTrackedStates();
+      return true;
+    }
+    // Any reactive property other than `_hass` changing is a deliberate local change (resolved
+    // entities, the media toggle, an image that failed to load) and always warrants a render.
+    let onlyHass = true;
+    changed.forEach((_value, key) => {
+      if (key !== "_hass") {
+        onlyHass = false;
+      }
+    });
+    if (!onlyHass) {
+      this._syncTrackedStates();
+      return true;
+    }
+    return this._syncTrackedStates();
+  }
+
+  /** Entity ids whose state this card reads - resolved roles plus any editor overrides. */
+  private _trackedEntityIds(): string[] {
+    const ids: string[] = [];
+    for (const role in this._entities) {
+      ids.push(this._entities[role].entity_id);
+    }
+    for (const key of ["camera_entity", "light_entity", "power_entity"]) {
+      const id = this._config?.[key];
+      if (id) {
+        ids.push(id);
+      }
+    }
+    return ids;
+  }
+
+  /**
+   * Compares the tracked entities' state objects against the last render's and records the new
+   * ones. HA replaces an entity's state object on every change and leaves it untouched otherwise,
+   * so identity comparison is both exact and cheap. Returns true when anything moved.
+   */
+  private _syncTrackedStates(): boolean {
+    if (!this._hass) {
+      return false;
+    }
+    let changed = false;
+    const seen: { [entityId: string]: true } = {};
+    for (const id of this._trackedEntityIds()) {
+      seen[id] = true;
+      const state = this._hass.states?.[id];
+      if (this._trackedStates[id] !== state) {
+        this._trackedStates[id] = state;
+        changed = true;
+      }
+    }
+    for (const id in this._trackedStates) {
+      if (!seen[id]) {
+        delete this._trackedStates[id];
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  public disconnectedCallback() {
+    super.disconnectedCallback();
+    // The confirmation dialog deliberately lives on document.body (see helpers.ts), so nothing
+    // else would clean it up if the card goes away while it's open.
+    helpers.closeConfirmationDialog();
+  }
+
+  /**
+   * Keeps the speed <select> showing the printer's actual speed.
+   *
+   * The template marks the right <option selected>, but that only drives the control until the
+   * user first interacts with it: picking an option sets the select's "dirty value" flag, after
+   * which the browser ignores changes to the options' `selected` *attribute*. So a speed changed
+   * elsewhere (the printer's own touchscreen, an automation) would leave the dropdown displaying
+   * whatever the user last picked. Assigning `.value` after each render is what actually moves it.
+   */
+  protected updated(changed: PropertyValues) {
+    super.updated(changed);
+    const select = this.renderRoot?.querySelector(".speed-select") as HTMLSelectElement | null;
+    if (!select) {
+      return;
+    }
+    const value = String(
+      Math.round(helpers.getNumericState(this._hass, this._e("speed_factor")) ?? 100)
+    );
+    if (select.value !== value) {
+      select.value = value;
+    }
   }
 
   private _resolveEntities() {
@@ -110,8 +241,9 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     try {
       const raw = localStorage.getItem(this._storageKey);
       if (!raw) return;
-      const saved = JSON.parse(raw);
+      const saved = JSON.parse(raw) as Partial<PersistedState>;
       this._manualView = saved.manualView ?? null;
+      this._manualActive = saved.manualActive ?? null;
     } catch {
       // ignore corrupt storage
     }
@@ -119,7 +251,11 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
 
   private _savePersistedState() {
     try {
-      localStorage.setItem(this._storageKey, JSON.stringify({ manualView: this._manualView }));
+      const payload: PersistedState = {
+        manualView: this._manualView,
+        manualActive: this._manualActive,
+      };
+      localStorage.setItem(this._storageKey, JSON.stringify(payload));
     } catch {
       // storage may be unavailable (private browsing etc) - non-fatal
     }
@@ -213,9 +349,12 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     // Layer count, print percentage, and time remaining all live here alongside the plain
     // status text rather than as an overlay on top of the video, so they're always readable
     // and never sit on top of (and block clicks on) the camera's own icon buttons.
+    // `progress` is already a percentage (moonraker-home-assistant's Progress sensor reports 0-100
+    // with a PERCENTAGE unit) - it is NOT a 0-1 ratio, and multiplying it by 100 here is what used
+    // to render "4200%" mid-print.
     const progressParts = [
       currentLayer && totalLayer ? `Layer ${currentLayer}/${totalLayer}` : "",
-      helpers.formatPercent(progress, true),
+      helpers.formatPercent(progress),
       this._isActive() ? `${timeLeft} left` : "",
     ].filter(Boolean);
 
@@ -232,38 +371,56 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     `;
   }
 
+  // In "auto" mode the manual toggle is an override for the *current* situation, not forever: it
+  // lapses as soon as the printer starts or stops printing, at which point auto behaviour (webcam
+  // while active, thumbnail otherwise) resumes. Previously the override was permanent and
+  // persisted, so one tap disabled "auto" for that printer for good with no way to restore it.
   private _currentMediaView(): MediaView {
     if (this._config.default_view === "webcam") return "webcam";
     if (this._config.default_view === "thumbnail") return "thumbnail";
-    if (this._manualView) return this._manualView;
-    return this._isActive() ? "webcam" : "thumbnail";
+    const active = this._isActive();
+    if (this._manualView && this._manualActive === active) {
+      return this._manualView;
+    }
+    return active ? "webcam" : "thumbnail";
   }
 
   private _toggleMediaView() {
     const current = this._currentMediaView();
     this._manualView = current === "webcam" ? "thumbnail" : "webcam";
+    this._manualActive = this._isActive();
     this._savePersistedState();
   }
 
   private _renderMedia() {
-    const view = this._currentMediaView();
     const camera = this._cameraEntity();
     const thumbnail = this._e("thumbnail");
-    const canToggle =
-      this._config.default_view === "auto" &&
-      camera &&
-      thumbnail &&
-      !helpers.isEntityUnavailable(this._hass, camera) &&
-      !helpers.isEntityUnavailable(this._hass, thumbnail);
+    const cameraOk = !!camera && !helpers.isEntityUnavailable(this._hass, camera);
+    const thumbnailOk = !!thumbnail && !helpers.isEntityUnavailable(this._hass, thumbnail);
+    const canToggle = this._config.default_view === "auto" && cameraOk && thumbnailOk;
 
-    const entity = view === "webcam" ? camera : thumbnail || camera;
-    const unavailable = !entity || helpers.isEntityUnavailable(this._hass, entity);
+    // Fall back to whichever source is actually usable. Without this, an unavailable thumbnail
+    // while idle showed "Camera unavailable" *and* hid the toggle (which requires both sources),
+    // leaving a dead panel with no way to reach a webcam that was working fine.
+    let view = this._currentMediaView();
+    if (view === "webcam" && !cameraOk && thumbnailOk) {
+      view = "thumbnail";
+    } else if (view === "thumbnail" && !thumbnailOk && cameraOk) {
+      view = "webcam";
+    }
+
+    const entity = view === "webcam" ? camera : thumbnail;
+    const unavailable = view === "webcam" ? !cameraOk : !thumbnailOk;
     const src =
       !unavailable && entity
         ? view === "webcam"
           ? helpers.getCameraStreamUrl(this._hass, entity)
           : helpers.getCameraImageUrl(this._hass, entity)
         : "";
+    // A camera can be "available" but still serve a stale/404 entity_picture (a thumbnail from a
+    // finished print, a rotated access token). Without an error handler that rendered as the
+    // browser's broken-image glyph; now it falls back to the same placeholder as no camera at all.
+    const broken = !!src && this._mediaErrorSrc === src;
 
     const progress = helpers.getNumericState(this._hass, this._e("progress"));
     const filename = helpers.getState(this._hass, this._e("filename")).replace(/\.gcode$/i, "");
@@ -271,12 +428,20 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     return html`
       <div class="media">
         ${
-          src
-            ? html`<img src=${src} alt="Printer view" />`
+          src && !broken
+            ? html`<img
+                src=${src}
+                alt="Printer view"
+                @error=${() => {
+                  this._mediaErrorSrc = src;
+                }}
+              />`
             : html`
                 <div class="no-media">
                   <ha-icon icon="mdi:printer-3d"></ha-icon>
-                  <span>${entity ? "Camera unavailable" : "No camera configured"}</span>
+                  <span
+                    >${camera || thumbnail ? "Camera unavailable" : "No camera configured"}</span
+                  >
                 </div>
               `
         }
@@ -299,7 +464,7 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
                 <ha-icon-button
                   class="media-expand"
                   title="Expand"
-                  @click=${() => helpers.showEntityMoreInfo(this, entity)}
+                  @click=${() => helpers.showEntityMoreInfo(this, entity!)}
                 >
                   <ha-icon icon="mdi:arrow-expand"></ha-icon>
                 </ha-icon-button>
@@ -315,7 +480,7 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
                     <div class="progress-track">
                       <div
                         class="progress-fill"
-                        style="width: ${Math.max(0, Math.min(100, progress * 100))}%"
+                        style="width: ${Math.max(0, Math.min(100, progress))}%"
                       ></div>
                     </div>
                   </div>
@@ -340,8 +505,10 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     dot?: "present" | "out" | null;
     title?: string;
   }) {
+    // A real <button> rather than a clickable <div>: these open the entity's more-info dialog, so
+    // they need to be reachable and activatable from the keyboard and announced as controls.
     return html`
-      <div class="stat-cell" title=${opts.title ?? ""} @click=${opts.onClick}>
+      <button class="stat-cell" title=${opts.title ?? ""} @click=${opts.onClick}>
         ${
           opts.dot
             ? html`<span
@@ -356,7 +523,7 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
           ${opts.sub ? html`<span class="stat-target">${opts.sub}</span>` : nothing}
         </div>
         <div class="stat-value ${opts.heating ? "heating" : ""}">${opts.value}</div>
-      </div>
+      </button>
     `;
   }
 
@@ -520,7 +687,7 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
             danger: true,
             disabled: !this._isActive(),
             onClick: () =>
-              helpers.showConfirmationDialog(this, {
+              helpers.showConfirmationDialog({
                 title: "Cancel print?",
                 text: "Cancel the current print? This can't be undone.",
                 confirmText: "Cancel print",
@@ -536,7 +703,7 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
             title: "Emergency stop",
             danger: true,
             onClick: () =>
-              helpers.showConfirmationDialog(this, {
+              helpers.showConfirmationDialog({
                 title: "Emergency stop?",
                 text: "Trigger an EMERGENCY STOP? The printer will halt immediately and require a restart.",
                 confirmText: "Emergency stop",

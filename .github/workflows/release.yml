@@ -30,8 +30,15 @@ jobs:
       - name: Install Node dependencies
         run: npm ci
 
-      - name: Build frontend
-        run: npm run build
+      # The artifact attached here is what HACS and the manual install steps actually ship, so it
+      # gets the same checks as CI - previously this ran the lenient `npm run build`
+      # (IGNORE_TS_ERRORS=true) and skipped `verify` entirely, making the released bundle the
+      # least-checked build in the repo.
+      - name: Build frontend (strict)
+        run: npm run build:strict
+
+      - name: Verify entity-discovery resolver against fixture
+        run: npm run verify
 
       - name: Smoke-test the built bundle renders without throwing
         run: npm run smoke

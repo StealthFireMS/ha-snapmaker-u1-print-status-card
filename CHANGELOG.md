@@ -1,5 +1,70 @@
 # Changelog
 
+## 0.1.9
+
+### Fixed
+
+- **Print progress was multiplied by 100 twice** - mid-print the status line read "4200%" instead
+  of "42%", and the progress bar over the camera sat pinned at 100% from 1% onwards. The card
+  treated `sensor.*_progress` as a 0-1 ratio, but moonraker-home-assistant's Progress sensor has
+  already done that conversion: it reports 0-100 with a `PERCENTAGE` unit. Removed the "this value
+  is a ratio" flag from `formatPercent()` entirely rather than just correcting the call, so the
+  mistake can't be re-expressed (nothing this card reads is a ratio), and added a smoke-test
+  assertion for both the status text and the bar width.
+- **The smoke test's tool-tile assertion was passing vacuously.** It searched
+  `shadowRoot.innerHTML` for the word "tool", which only ever matched the words "4 tools" and
+  "icon-button toolbar" inside CSS comments in the stylesheet jsdom injects - the tiles themselves
+  are labelled E0-E3, so the check would have stayed green with every tile missing (and in a real
+  browser, which uses `adoptedStyleSheets`, the CSS isn't in `innerHTML` at all). All of the
+  string-matching assertions now query the DOM instead, and the suite covers each fix below.
+- **An unavailable print thumbnail left a dead media panel.** While idle the card shows the
+  thumbnail; if that entity was unavailable it displayed "Camera unavailable" _and_ hid the
+  view-toggle button (which requires both sources to be available), so a perfectly good webcam was
+  unreachable. The panel now falls back to whichever source works. A camera that is "available"
+  but serves a stale or 404 image now falls back to the placeholder too, instead of the browser's
+  broken-image glyph.
+- **Entities were resolved once and never again.** Roles were matched on the first `hass` only, so
+  anything not yet in the entity registry at that moment - the integration still starting up after
+  a restart, the printer offline at boot, an integration reload, a rename - left the affected
+  tiles and controls missing until the browser was reloaded. The card now re-resolves whenever the
+  entity registry changes.
+- **The print-speed dropdown could drift away from the printer's actual speed.** The selected
+  option was driven purely by the `selected` attribute; once the user had picked an option the
+  browser's dirty-value flag makes further attribute changes a no-op, so a speed changed elsewhere
+  (the printer's touchscreen, an automation) wasn't reflected. The card now assigns the select's
+  `.value` after each render.
+- **`screen_url` accepted any URL scheme.** The "does this already have a scheme" test allowed
+  anything followed by `//`, so a `javascript://…` address was handed straight to `window.open`.
+  Only `http`/`https` are accepted now; anything else hides the button. `host:port` addresses
+  (`printer.local:8080`) still work - a scheme is only recognised when it isn't followed by a port.
+- **The confirmation dialog leaked and swallowed cancels.** It lives on `document.body` by design
+  (see 0.1.6), but nothing removed it if the card was torn down while it was open, and dismissing
+  it with Escape or by clicking the scrim never ran the `cancel` callback. Both handled.
+- The resolver's cross-contamination guard matched bare substrings, so a guard like `e1` would
+  also have excluded an unrelated entity whose own name merely contains those characters
+  (`the1_fan_speed`). It now matches whole underscore-delimited segments.
+
+### Changed
+
+- **The card no longer re-renders on every state change in the instance.** Home Assistant hands
+  each card a fresh `hass` object whenever anything anywhere changes state; the card now compares
+  the entities it actually draws and skips the rest.
+- **Added `getCardSize()`.** The masonry and panel dashboard views ignore
+  `getGridOptions()`/`getLayoutOptions()` and use this instead; without it they assumed the card
+  was one row tall.
+- **The media view toggle now lapses instead of sticking forever.** In `auto` mode the manual
+  choice applied permanently and was persisted, so one tap disabled automatic switching for that
+  printer for good. It now applies until the printer next starts or stops printing. Its saved
+  state is also keyed on the printer alone, so changing an unrelated card option no longer
+  discards it.
+- **Stat cells (Bed/Cavity/E0-E3) are real buttons**, so they can be reached and activated from
+  the keyboard and are announced as controls; they open the same more-info dialog as before and
+  look identical.
+- Releases are now built with `build:strict` and run the resolver check, matching CI - the
+  released bundle was previously the only build in the repo that ignored TypeScript errors and
+  skipped `npm run verify`. `noUnusedLocals` is on, and the dead `PRINT_STATES`, `formatEta()`,
+  `getAttribute()` and an unused import are gone. CI no longer runs twice for same-repo PRs.
+
 ## 0.1.8
 
 ### Fixed

@@ -25,7 +25,10 @@ cavity fan slider.](src/images/card-preview.png)
 
 - Live camera feed **or** the current print's thumbnail on the left, with a view-toggle icon
   (top-left) and an expand-to-more-info icon (bottom-right); the filename and a progress bar
-  overlay on top while a print is active.
+  overlay on top while a print is active. In `auto` mode the toggle is an override for the
+  situation you're in rather than a permanent setting - it lapses when the printer next starts or
+  stops printing, and automatic switching resumes. If one of the two sources is unavailable the
+  panel falls back to whichever one works.
 - A compact stat sidebar next to the camera: bed, cavity, and all four tool (E0-E3) temperatures
   at a glance, each with its target temperature and (for tools) a filament-present indicator
   (green = loaded, red = out) - tap any cell to open its full history, or hover for the full
@@ -79,15 +82,15 @@ default_view: auto # auto | webcam | thumbnail
 All other options (camera/light/power overrides) are best set through the visual editor - open
 the card's settings and everything is there via dropdowns and entity pickers.
 
-| Option          | Type                              | Default         | Description                                                                                                                                                                                                                     |
-| --------------- | --------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `printer`       | device                            | _(required)_    | The Moonraker device for your U1.                                                                                                                                                                                               |
-| `show_camera`   | boolean                           | `true`          | Show the camera/thumbnail panel.                                                                                                                                                                                                |
-| `default_view`  | `auto` \| `webcam` \| `thumbnail` | `auto`          | `auto` shows the webcam while printing/paused and the thumbnail otherwise, with a manual toggle.                                                                                                                                |
-| `camera_entity` | entity (camera)                   | _auto-detected_ | Override the webcam entity.                                                                                                                                                                                                     |
-| `light_entity`  | entity (light)                    | _auto-detected_ | Override the cavity light entity.                                                                                                                                                                                               |
-| `power_entity`  | entity (switch)                   | _(none)_        | A smart-plug switch to show/toggle as an icon button.                                                                                                                                                                           |
-| `screen_url`    | string                            | _(none)_        | Printer's IP or URL for its Paxx touchscreen web UI - adds a button that opens it in a new tab. A bare IP (`192.168.20.163`) becomes `http://192.168.20.163/screen/`; a full URL is used as-is. Leave blank to hide the button. |
+| Option          | Type                              | Default         | Description                                                                                                                                                                                                                                                                          |
+| --------------- | --------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `printer`       | device                            | _(required)_    | The Moonraker device for your U1.                                                                                                                                                                                                                                                    |
+| `show_camera`   | boolean                           | `true`          | Show the camera/thumbnail panel.                                                                                                                                                                                                                                                     |
+| `default_view`  | `auto` \| `webcam` \| `thumbnail` | `auto`          | `auto` shows the webcam while printing/paused and the thumbnail otherwise, with a manual toggle.                                                                                                                                                                                     |
+| `camera_entity` | entity (camera)                   | _auto-detected_ | Override the webcam entity.                                                                                                                                                                                                                                                          |
+| `light_entity`  | entity (light)                    | _auto-detected_ | Override the cavity light entity.                                                                                                                                                                                                                                                    |
+| `power_entity`  | entity (switch)                   | _(none)_        | A smart-plug switch to show/toggle as an icon button.                                                                                                                                                                                                                                |
+| `screen_url`    | string                            | _(none)_        | Printer's IP or URL for its Paxx touchscreen web UI - adds a button that opens it in a new tab. A bare IP (`192.168.20.163`) or `host:port` becomes `http://192.168.20.163/screen/`; a full `http(s)` URL is used as-is. Other schemes are rejected. Leave blank to hide the button. |
 
 ### Card size
 
@@ -135,10 +138,15 @@ npm start               # rollup --watch with a local dev server on :4000
 ```
 
 CI (`.github/workflows/build-check.yml`) runs all three of `build:strict`, `verify`, and `smoke`
-on every push and PR; tagged GitHub releases trigger `.github/workflows/release.yml`, which bumps
-`package.json` to match the tag, rebuilds, re-runs `smoke`, and attaches the built
-`snapmaker-u1-print-status-card.js` to the release (this is the file HACS and the manual
-install steps above pull from).
+on pull requests and on pushes to the default branch; tagged GitHub releases trigger
+`.github/workflows/release.yml`, which bumps `package.json` to match the tag and then runs the
+same three checks before attaching the built `snapmaker-u1-print-status-card.js` to the release
+(this is the file HACS and the manual install steps above pull from).
+
+When adding to the smoke test, assert against the rendered DOM rather than `shadowRoot.innerHTML`.
+Under jsdom the whole stylesheet - comments included - is part of `innerHTML`, so a substring check
+can quietly match CSS instead of the thing it means to test; real browsers use `adoptedStyleSheets`
+and wouldn't contain the CSS there at all.
 
 The card is TypeScript + [Lit](https://lit.dev), bundled with Rollup - the same stack as
 `ha-bambulab-cards`, trimmed down to one card.
@@ -149,7 +157,8 @@ A number of entities are already auto-discovered but not yet surfaced in the UI 
 speed/RPM/power (`tool{n}_fan`, `tool{n}_fan_speed`, `tool{n}_fan_rpm`, `tool{n}_nozzle_fan`,
 `tool{n}_power`), `bed_power`, `cavity_fan`/`cavity_fan_rpm`, toolhead X/Y/Z position, per-axis
 homing, ETA/elapsed time, lifetime print time/filament/jobs, print queue, tool hub power, and
-MCU/system load (these last ones used to live in a collapsible "Advanced" section that's since
+MCU/system load (note that anything new the card reads should be added to `_trackedEntityIds()`,
+which is what decides when the card re-renders) (these last ones used to live in a collapsible "Advanced" section that's since
 been removed, but the resolver still finds them - see `buildRoleCandidates()`). See
 `src/utils/helpers.ts` for the full role table and `print-status-card.ts` for how resolved roles
 turn into UI - PRs that put more of this to use are very welcome.
