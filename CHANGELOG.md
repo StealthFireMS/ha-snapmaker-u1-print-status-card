@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.7
+
+### Added
+
+- A new icon button that opens the printer's own Paxx touchscreen web UI (`http://<printer
+IP>/screen/`) in a new browser tab. Set the printer's IP or a full URL in the card editor's new
+  "Printer touchscreen IP/URL" field - there's no reliable way to auto-detect the printer's LAN
+  address from entity data alone (see the design note in `helpers.ts`), so this is a one-time
+  manual field, the same way the camera/light/power overrides already work. The button is hidden
+  entirely if the field is left blank. A bare IP or hostname (with or without a port) gets
+  `/screen/` appended automatically; anything that already looks like a full URL, or already has
+  its own path, is used exactly as typed.
+
 ## 0.1.6
 
 ### Fixed

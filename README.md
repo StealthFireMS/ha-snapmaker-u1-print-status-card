@@ -26,8 +26,9 @@ rather than the cloud.
 - The current print state (e.g. "Printing", "Offline") as a plain status line below the
   camera/stats row, with the layer count, percent complete, and time remaining alongside it
   while a print is active.
-- A row of square icon buttons for Cavity light, Power plug, Pause/Resume, Cancel, and Emergency
-  Stop, with a confirmation dialog before anything destructive.
+- A row of square icon buttons for Cavity light, Power plug, an optional link to the printer's
+  own touchscreen web UI, Pause/Resume, Cancel, and Emergency Stop, with a confirmation dialog
+  before anything destructive.
 - A fixed-speed dropdown (50/80/100/120/150%) and a cavity fan slider.
 
 ## Requirements
@@ -71,14 +72,15 @@ default_view: auto # auto | webcam | thumbnail
 All other options (camera/light/power overrides) are best set through the visual editor - open
 the card's settings and everything is there via dropdowns and entity pickers.
 
-| Option          | Type                              | Default         | Description                                                                                      |
-| --------------- | --------------------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
-| `printer`       | device                            | _(required)_    | The Moonraker device for your U1.                                                                |
-| `show_camera`   | boolean                           | `true`          | Show the camera/thumbnail panel.                                                                 |
-| `default_view`  | `auto` \| `webcam` \| `thumbnail` | `auto`          | `auto` shows the webcam while printing/paused and the thumbnail otherwise, with a manual toggle. |
-| `camera_entity` | entity (camera)                   | _auto-detected_ | Override the webcam entity.                                                                      |
-| `light_entity`  | entity (light)                    | _auto-detected_ | Override the cavity light entity.                                                                |
-| `power_entity`  | entity (switch)                   | _(none)_        | A smart-plug switch to show/toggle as an icon button.                                            |
+| Option          | Type                              | Default         | Description                                                                                                                                                                                                                     |
+| --------------- | --------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `printer`       | device                            | _(required)_    | The Moonraker device for your U1.                                                                                                                                                                                               |
+| `show_camera`   | boolean                           | `true`          | Show the camera/thumbnail panel.                                                                                                                                                                                                |
+| `default_view`  | `auto` \| `webcam` \| `thumbnail` | `auto`          | `auto` shows the webcam while printing/paused and the thumbnail otherwise, with a manual toggle.                                                                                                                                |
+| `camera_entity` | entity (camera)                   | _auto-detected_ | Override the webcam entity.                                                                                                                                                                                                     |
+| `light_entity`  | entity (light)                    | _auto-detected_ | Override the cavity light entity.                                                                                                                                                                                               |
+| `power_entity`  | entity (switch)                   | _(none)_        | A smart-plug switch to show/toggle as an icon button.                                                                                                                                                                           |
+| `screen_url`    | string                            | _(none)_        | Printer's IP or URL for its Paxx touchscreen web UI - adds a button that opens it in a new tab. A bare IP (`192.168.20.163`) becomes `http://192.168.20.163/screen/`; a full URL is used as-is. Leave blank to hide the button. |
 
 ### Card size
 

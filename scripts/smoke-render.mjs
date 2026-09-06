@@ -85,6 +85,7 @@ async function main() {
     type: "custom:snapmaker-u1-print-status-card",
     printer: deviceId,
     show_camera: true,
+    screen_url: "192.168.20.163",
   });
   el.hass = hass;
 
@@ -196,6 +197,29 @@ async function main() {
     if (!speedOptions.includes(preset)) {
       throw new Error(`Print speed dropdown is missing the ${preset}% preset.`);
     }
+  }
+
+  // The printer-touchscreen button: configured with a bare IP ("192.168.20.163"), it should
+  // open "http://192.168.20.163/screen/" (the "/screen/" suffix appended automatically) in a
+  // new tab when clicked.
+  const screenButton = Array.from(shadow.querySelectorAll(".controls .icon-btn")).find((btn) =>
+    (btn.getAttribute("title") || "").toLowerCase().includes("touchscreen")
+  );
+  if (!screenButton) {
+    throw new Error("Printer touchscreen button not found in the toolbar.");
+  }
+  let openedUrl = null;
+  const originalOpen = window.open;
+  window.open = (url) => {
+    openedUrl = url;
+    return null;
+  };
+  screenButton.click();
+  window.open = originalOpen;
+  if (openedUrl !== "http://192.168.20.163/screen/") {
+    throw new Error(
+      `Clicking the touchscreen button opened ${JSON.stringify(openedUrl)}, expected "http://192.168.20.163/screen/".`
+    );
   }
 
   console.log(`Smoke test passed: rendered ${shadow.innerHTML.length} chars with no errors.`);

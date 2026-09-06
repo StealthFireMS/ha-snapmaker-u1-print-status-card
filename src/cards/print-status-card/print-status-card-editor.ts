@@ -43,6 +43,12 @@ const SCHEMA = [
     label: "Smart-plug / power switch (optional)",
     selector: { entity: { domain: "switch" } },
   },
+  {
+    name: "screen_url",
+    label: "Printer touchscreen IP/URL (optional)",
+    helper: "e.g. 192.168.20.163 - opens http://<this>/screen/ in a new tab. Leave blank to hide.",
+    selector: { text: {} },
+  },
 ];
 
 @customElement(PRINT_STATUS_CARD_EDITOR_NAME)
@@ -73,6 +79,7 @@ export class SnapmakerU1PrintStatusCardEditor extends LitElement {
         .data=${this._config}
         .schema=${SCHEMA}
         .computeLabel=${(s: any) => s.label}
+        .computeHelper=${(s: any) => s.helper}
         @value-changed=${this._handleValueChanged}
       ></ha-form>
     `;

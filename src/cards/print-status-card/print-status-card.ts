@@ -152,6 +152,14 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     return undefined;
   }
 
+  // The printer's own Paxx touchscreen UI, reachable at http://<printer IP>/screen/. There's no
+  // entity/attribute that reliably exposes the printer's LAN IP to every dashboard viewer (see
+  // the module-level note in helpers.ts on why auto-discovery here sticks to entity data only),
+  // so this is a manual field in the card editor rather than something auto-detected.
+  private _screenUrl(): string {
+    return helpers.normalizeUrl(this._config.screen_url ?? "", "/screen/");
+  }
+
   private _printState(): string {
     const raw = helpers.getState(this._hass, this._e("print_state")).toLowerCase();
     if (raw) {
@@ -458,6 +466,7 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
     const state = this._printState();
     const light = this._lightEntity();
     const power = this._powerEntity();
+    const screenUrl = this._screenUrl();
     const pause = this._e("pause_print");
     const resume = this._e("resume_print");
     const cancel = this._e("cancel_print");
@@ -481,6 +490,13 @@ export class SnapmakerU1PrintStatusCard extends LitElement {
             title: "Power plug",
             active: helpers.getState(this._hass, power) === "on",
             onClick: () => helpers.toggleDomain(this._hass, "switch", power),
+          })
+        : nothing,
+      screenUrl
+        ? this._iconButton({
+            icon: "mdi:open-in-new",
+            title: "Open printer touchscreen",
+            onClick: () => helpers.openInNewTab(screenUrl),
           })
         : nothing,
       state === "paused" && resume

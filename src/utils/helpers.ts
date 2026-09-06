@@ -437,3 +437,35 @@ export function getCameraImageUrl(hass: any, entity?: RegistryEntity): string {
   const picture = hass.states[entity.entity_id]?.attributes?.entity_picture;
   return picture ? `${picture}` : "";
 }
+
+/**
+ * Normalizes a user-typed address for an external link (e.g. the printer's own Paxx touchscreen
+ * web UI) into a full URL - accepts a bare IP/hostname ("192.168.20.163"), one with a port
+ * and/or path ("192.168.20.163:8080/screen/"), or an already-complete URL
+ * ("http://192.168.20.163/screen/"), whichever is quickest to type into the card editor.
+ * `defaultPath` is appended only when the input has no real path of its own, so a bare
+ * IP/hostname (with or without a trailing slash) gets it, but an address that already specifies
+ * a path is left alone.
+ */
+export function normalizeUrl(raw: string, defaultPath = ""): string {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return "";
+  }
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)) {
+    // Already has a scheme (http://, https://, ...) - use as typed.
+    return trimmed;
+  }
+  const slashIndex = trimmed.indexOf("/");
+  const hasRealPath = slashIndex !== -1 && slashIndex < trimmed.length - 1;
+  const withPath = hasRealPath ? trimmed : `${trimmed.replace(/\/$/, "")}${defaultPath}`;
+  return `http://${withPath}`;
+}
+
+/** Opens a URL in a new browser tab (e.g. the printer's own touchscreen web UI). */
+export function openInNewTab(url: string) {
+  if (!url) {
+    return;
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
